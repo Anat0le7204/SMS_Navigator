@@ -1,23 +1,25 @@
 # -*- coding: utf-8 -*-
 """
-文体楼楼层重映射：GF1→F2、文体楼的 L2→F3、GF2→F4（其他楼不动）。
+文体楼楼层统一编码：GF1→L2、文体楼原 L2→L3、GF2→L4，与全校区 L 编码合并。
 
-背景：文体楼跨 L1、GF1、L2、GF2 四层，其中 GF1/GF2 是文体楼独有的夹层，
-L2 则与教学楼/行政楼/宿舍共用。本模块把两个夹层与文体楼在 L2 的部分
-分别改为正式楼层 F2 / F3 / F4，其余楼栋的 L2 保持不变。
+背景：文体楼跨 L1、GF1、L2、GF2 四层，原数据用 GF1/GF2（夹层）+ 共用 L2 表示，
+与其他楼的 L1/L2/L3/L4 编码不一致。本模块把文体楼各层并入对应编号的 L 楼层：
+  * GF1（文体楼 2 层） → 并入 L2（与教学楼 2 层合并）
+  * 文体楼在 L2 上的部分（3 层）→ 并入 L3（与教学楼 3 层合并）
+  * GF2（文体楼 4 层） → 并入 L4（与教学楼 4 层合并）
 
 实现要点：
-  * 楼层多边形没有楼栋标签 → 用「文体楼包围盒」（由文体楼独有的 GF1/GF2
-    多边形求出，含 padding）按质心归属拆分 L2 多边形；
-  * 节点 / POI / 标签都有楼栋信息 → 按 building 字段精确归属；
-  * 节点 floorIdx、POI.f 全部重算；edges 引用节点下标，无需改动。
+  * 楼层多边形没有楼栋标签 → 用「文体楼包围盒」（由 GF1/GF2 多边形求出，含 padding）
+    按质心归属拆分 L2，把文体楼部分挪到 L3；
+  * 节点 / POI / 标签按「包围盒 + building 字段」归属（build_data.py 的就近楼栋推断
+    会把 LT-62 这类楼梯误标成行政楼，故以坐标兜底）；
+  * 节点 floorIdx、POI.f 重算；垂直边权重按新层级差重算（9.0 楼梯 / 6.0 电梯 × 层高差）。
 
 在 data/build_data.py 末尾调用 apply()，使每次重新抽取自动生效；
 也可对已生成的 data/map-data.json 直接运行本文件完成一次性迁移。
 """
-import math
 
-RENAME = {"GF1": "F2", "GF2": "F4"}   # 文体楼独有夹层 → 正式楼层
+RENAME = {"GF1": "L2", "GF2": "L4"}   # 文体楼 2/4 层并入对应 L 楼层；L2 的文体楼部分另并入 L3
 
 
 def _bbox(polys):
@@ -45,72 +47,77 @@ def _bounds(polys, labels):
 
 def apply(d):
     F = {f["id"]: f for f in d["floors"]}
-    if "F3" in F:            # 已迁移过，直接返回（幂等）
+    if "GF1" not in F or "GF2" not in F:   # 已合并过，幂等
         return d
+
+    old_order = d["meta"]["floorOrder"]
 
     # ---- 文体楼包围盒 ----
     x0, y0, x1, y1 = _bbox(F["GF1"]["polys"] + F["GF2"]["polys"])
     pad = 30
     x0 -= pad; y0 -= pad; x1 += pad; y1 += pad
     def in_wt(x, y): return x0 <= x <= x1 and y0 <= y <= y1
+    def is_wt(x, y, bld): return in_wt(x, y) or bld == "文体楼"
 
-    old_order = d["meta"]["floorOrder"]
-
-    # L2 上属于文体楼的节点/POI/标签 → F3
-    # 判据用「空间包围盒」为主（与多边形拆分一致），building 字段为辅
-    # （build_data.py 的就近楼栋推断会把 LT-62 这类楼梯误标成行政楼，须按坐标兜底）
-    def is_wt(x, y, building):
-        return in_wt(x, y) or building == "文体楼"
-
-    # ---- 拆分 L2：多边形按包围盒、标签按包围盒、节点/POI 按包围盒+楼栋 ----
+    # ---- 拆分共用 L2：文体楼部分（→L3）与教学楼等部分（留在 L2） ----
     l2 = F["L2"]
     wt_polys = [p for p in l2["polys"] if in_wt(*_centroid(p))]
     keep_polys = [p for p in l2["polys"] if not in_wt(*_centroid(p))]
     wt_labels = [l for l in l2["labels"] if in_wt(l["x"], l["y"])]
     keep_labels = [l for l in l2["labels"] if not in_wt(l["x"], l["y"])]
-    l2["polys"] = keep_polys
-    l2["labels"] = keep_labels
-    l2["bounds"] = _bounds(keep_polys, keep_labels)
 
-    f3 = {
-        "id": "F3", "name": "F3", "note": "",
-        "level": l2["level"], "kind": "indoor",
-        "bounds": _bounds(wt_polys, wt_labels),
-        "polys": wt_polys, "labels": wt_labels,
-    }
+    # ---- 合并 ----
+    # L2 = 教学楼等 L2 部分 + GF1（文体楼 2 层）
+    l2["polys"] = keep_polys + F["GF1"]["polys"]
+    l2["labels"] = keep_labels + F["GF1"]["labels"]
+    l2["bounds"] = _bounds(l2["polys"], l2["labels"])
 
-    # ---- 重命名 GF1/GF2（level 保持不变） ----
-    for old, new in RENAME.items():
-        F[old]["id"] = new
-        F[old]["name"] = new
-        F[old]["note"] = ""
+    # L3 = 教学楼等 L3 + 文体楼原 L2 部分（3 层）
+    l3 = F["L3"]
+    l3["polys"] = l3["polys"] + wt_polys
+    l3["labels"] = l3["labels"] + wt_labels
+    l3["bounds"] = _bounds(l3["polys"], l3["labels"])
 
-    # ---- 重排 floors（原 GF2 之后插入 F3） ----
-    new_floors = []
-    for f in d["floors"]:
-        new_floors.append(f)
-        if f["id"] == "F4":
-            new_floors.append(f3)
-    d["floors"] = new_floors
-    new_order = [f["id"] for f in new_floors]
+    # L4 = 教学楼等 L4 + GF2（文体楼 4 层）
+    l4 = F["L4"]
+    l4["polys"] = l4["polys"] + F["GF2"]["polys"]
+    l4["labels"] = l4["labels"] + F["GF2"]["labels"]
+    l4["bounds"] = _bounds(l4["polys"], l4["labels"])
+
+    # ---- 删除 GF1/GF2，重排 floorOrder ----
+    d["floors"] = [f for f in d["floors"] if f["id"] not in ("GF1", "GF2")]
+    new_order = [f["id"] for f in d["floors"]]
     d["meta"]["floorOrder"] = new_order
 
     # ---- 节点 floorIdx 重算 ----
     for n in d["nodes"]:
         old_fid = old_order[n[2]]
-        if old_fid in RENAME:
-            n[2] = new_order.index(RENAME[old_fid])
+        if old_fid == "GF1":
+            n[2] = new_order.index("L2")
+        elif old_fid == "GF2":
+            n[2] = new_order.index("L4")
         elif old_fid == "L2" and is_wt(n[0], n[1], n[5]):
-            n[2] = new_order.index("F3")
+            n[2] = new_order.index("L3")
         else:
             n[2] = new_order.index(old_fid)
 
     # ---- POI 楼层重算 ----
     for p in d["pois"]:
-        if p["f"] in RENAME:
-            p["f"] = RENAME[p["f"]]
+        if p["f"] == "GF1":
+            p["f"] = "L2"
+        elif p["f"] == "GF2":
+            p["f"] = "L4"
         elif p["f"] == "L2" and is_wt(p["x"], p["y"], p.get("b")):
-            p["f"] = "F3"
+            p["f"] = "L3"
+
+    # ---- 垂直边权重按新层级差重算（9.0 楼梯 / 6.0 电梯） ----
+    levels = {f["id"]: f["level"] for f in d["floors"]}
+    for e in d["edges"]:
+        a, b, w, k = e
+        if k in (1, 2):
+            la = levels[new_order[d["nodes"][a][2]]]
+            lb = levels[new_order[d["nodes"][b][2]]]
+            e[2] = round((9.0 if k == 1 else 6.0) * abs(la - lb), 2)
 
     return d
 
@@ -123,9 +130,11 @@ if __name__ == "__main__":
     apply(d)
     after = {f["id"]: len(f["polys"]) for f in d["floors"]}
     io.open(path, "w", encoding="utf-8").write(json.dumps(d, ensure_ascii=False))
-    print("文体楼楼层重映射完成")
-    print("  L2 多边形:", before.get("L2"), "→", after.get("L2"))
-    print("  F3(文体楼原L2):", after.get("F3"), " F2(原GF1):", after.get("F2"), " F4(原GF2):", after.get("F4"))
+    print("文体楼楼层已统一编码为 L 编码")
+    print("  GF1 → L2:", before.get("GF1"), "并入 L2 (原", before.get("L2"), "→", after.get("L2"), ")")
+    print("  GF2 → L4:", before.get("GF2"), "并入 L4 (原", before.get("L4"), "→", after.get("L4"), ")")
+    print("  文体楼原 L2 部分 → L3:", after.get("L3"), "(原", before.get("L3"), ")")
     print("  floorOrder:", d["meta"]["floorOrder"])
-    print("  文体楼 F3 房间:", [p["n"] for p in d["pois"] if p["f"] == "F3"])
-    print("  形体室所在楼层:", [p["f"] for p in d["pois"] if p["n"] == "形体室"])
+    print("  形体室:", [p["f"] for p in d["pois"] if p["n"] == "形体室"])
+    print("  化妆间:", [p["f"] for p in d["pois"] if p["n"] == "化妆间"])
+    print("  D202:", [p["f"] for p in d["pois"] if p["n"] == "D202"])
