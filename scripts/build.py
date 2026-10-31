@@ -6,7 +6,7 @@
     python scripts/build.py
 
 产物:
-    SMS_Navigator.html   (根目录，可直接双击打开)
+    index.html   (根目录，可直接双击打开)
     data/map-data.js        (开发用，把 JSON 包装成 window.MAP_DATA)
 
 打包内容:
@@ -25,7 +25,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "src")
-OUT = os.path.join(ROOT, "SMS_Navigator.html")
+OUT = os.path.join(ROOT, "index.html")
 DATA_JSON = os.path.join(ROOT, "data", "map-data.json")
 DATA_JS = os.path.join(ROOT, "data", "map-data.js")
 

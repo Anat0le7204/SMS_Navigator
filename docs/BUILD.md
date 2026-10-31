@@ -33,7 +33,7 @@ python scripts/build.py
 输出：
 
 ```
-SMS_Navigator.html
+index.html
 ```
 
 同时生成/刷新 `data/map-data.js`。
@@ -64,7 +64,7 @@ SMS_Navigator.html
 验收旋转性能：
 
 ```text
-SMS_Navigator.html?compass=sim&heading=90&nav=1&perf=1
+index.html?compass=sim&heading=90&nav=1&perf=1
 ```
 
 等待约 2 秒后看标签页标题，例如 `PERF n=38 p50=9.8 p90=21.0 max=41.1 >33ms=2`。
@@ -80,10 +80,10 @@ node --check src/js/00-data.js
 ...
 
 # 打开构建产物
-start SMS_Navigator.html
+start index.html
 ```
 
-构建产物应当无网络请求：`grep -o 'src="[^"]*"' SMS_Navigator.html` 只应看到 data URI 或空。
+构建产物应当无网络请求：`grep -o 'src="[^"]*"' index.html` 只应看到 data URI 或空。
 
 ## 重新生成地图数据
 
@@ -105,7 +105,7 @@ python scripts/build.py
 
 ## 文件命名
 
-- 构建产物：`SMS_Navigator.html`（根目录）
+- 构建产物：`index.html`（根目录）
 - 源码入口：`src/index.html`
 - 数据：`data/map-data.json`（源）+ `data/map-data.js`（开发包装，生成物）
 - 校徽：`src/assets/badge.png`（透明底，源图来自深圳中学官网校徽页）

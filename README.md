@@ -4,9 +4,13 @@
 
 ## 快速开始
 
-直接双击根目录的 **`SMS_Navigator.html`** 即可使用。该文件已内联全部数据、样式、脚本和校徽，不依赖网络，也不需要安装任何东西。
+直接双击根目录的 **`index.html`** 即可使用。该文件已内联全部数据、样式、脚本和校徽，不依赖网络，也不需要安装任何东西。
 
 也可以把文件拷到手机或 U 盘，用浏览器打开。
+
+### 部署到 GitHub Pages
+
+仓库根目录的 `index.html` 即站点入口。在仓库 **Settings → Pages** 中把 Source 选为 `Deploy from a branch`、分支 `main`、目录 `/ (root)` 即可，无需构建步骤（`index.html` 已内联全部资源）。
 
 ## 功能
 
@@ -23,7 +27,7 @@
 
 ```
 .
-├─ SMS_Navigator.html      # 构建产物：单文件离线应用
+├─ index.html      # 构建产物：单文件离线应用
 ├─ src/                       # 多文件源码（开发时使用）
 │  ├─ index.html              # 开发入口，按顺序引用样式与脚本
 │  ├─ styles/                 # base / panel / map / navigation
@@ -61,7 +65,7 @@ python scripts/build.py
 2. 把 9 个 JS 模块按 `index.html` 中的顺序拼接成一个 IIFE；
 3. 把校徽转成 base64 data URI（品牌区、导航条、favicon）；
 4. 把 `data/map-data.json` 内联为 `window.MAP_DATA`；
-5. 输出根目录的 `SMS_Navigator.html`。
+5. 输出根目录的 `index.html`。
 
 ## 键盘快捷键
 

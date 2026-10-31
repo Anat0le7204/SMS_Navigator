@@ -2,7 +2,7 @@
 
 ## 1. 总体结构
 
-应用是纯前端、零依赖的原生 JavaScript + SVG。源码按职责拆分为 8 个脚本和 4 个样式文件，构建时按顺序拼接为一个 IIFE，并内联数据与图片，产出单文件 `SMS_Navigator.html`。
+应用是纯前端、零依赖的原生 JavaScript + SVG。源码按职责拆分为 8 个脚本和 4 个样式文件，构建时按顺序拼接为一个 IIFE，并内联数据与图片，产出单文件 `index.html`。
 
 ```
 index.html
