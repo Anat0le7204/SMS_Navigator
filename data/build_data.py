@@ -454,6 +454,10 @@ data = {
     "pois": pois,
 }
 
+# 文体楼楼层重映射：GF1→F2、文体楼的 L2→F3、GF2→F4（其他楼不动）
+from wenti_floors import apply as remap_wenti_floors
+data = remap_wenti_floors(data)
+
 with open(OUT, "w", encoding="utf-8") as f:
     json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
 
