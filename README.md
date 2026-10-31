@@ -15,6 +15,8 @@
 ## 功能
 
 - **起终点**：搜索教室号 / 功能室 / 校门，或在地图上点选，支持交换与快捷地点。
+- **班级直达**：输入班级名（如「高一(1)班」或简写「高一1班」）即可定位到对应教室；映射关系在 `config/classroom-map.json` 维护，每年班级/教室变动时只改这个文件。
+- **项目仓库入口**：面板底部提供 GitHub 仓库链接，便于反馈问题与查看源码。
 - **最短路径**：基于官方路网节点的 Dijkstra；默认**只走楼梯**（学生不能使用电梯），可切换“使用电梯（教职工/访客）”。
 - **分步指引**：每步包含方向、距离、所在楼层，换层单独成步，并提示途经房间。
 - **路线可视化**：19 层矢量平面图、逐层路线、起终点标记、换层位置“上 N 层”气泡。
@@ -33,9 +35,12 @@
 │  ├─ styles/                 # base / panel / map / navigation
 │  ├─ js/                     # 00-data / 15-compass / 10-floorplan … 70-app
 │  └─ assets/badge.png        # 深圳中学校徽（透明底）
-├─ scripts/build.py           # 打包脚本：内联 CSS/JS/校徽/数据
+├─ scripts/build.py           # 打包脚本：内联 CSS/JS/校徽/数据/班级配置
+├─ config/
+│  └─ classroom-map.json      # 班级 ↔ 教室映射（每年改动只改这里）
 ├─ data/
 │  ├─ build_data.py           # 从 onemap.top 抽取地图数据
+│  ├─ wenti_floors.py         # 文体楼楼层重映射（GF1→F2、L2→F3、GF2→F4）
 │  ├─ map-data.json           # 结构化离线数据
 │  └─ map-data.js             # 开发用包装（build.py 生成）
 └─ docs/                      # 架构、数据、构建与变更文档

@@ -28,6 +28,8 @@ SRC = os.path.join(ROOT, "src")
 OUT = os.path.join(ROOT, "index.html")
 DATA_JSON = os.path.join(ROOT, "data", "map-data.json")
 DATA_JS = os.path.join(ROOT, "data", "map-data.js")
+CLASS_JSON = os.path.join(ROOT, "config", "classroom-map.json")
+CLASS_JS = os.path.join(ROOT, "config", "classroom-map.js")
 
 
 def read(path):
@@ -45,6 +47,14 @@ def main():
     # 开发用数据脚本
     with io.open(DATA_JS, "w", encoding="utf-8") as f:
         f.write("window.MAP_DATA = " + raw.replace("</script", "<\\/script") + ";\n")
+
+    # 班级↔教室映射（独立配置，便于每年改动）
+    if os.path.exists(CLASS_JSON):
+        raw_class = read(CLASS_JSON).strip()
+    else:
+        raw_class = '{"version":"0","updated":"","note":"","classes":[]}'
+    with io.open(CLASS_JS, "w", encoding="utf-8") as f:
+        f.write("window.CLASSROOM_MAP = " + raw_class.replace("</script", "<\\/script") + ";\n")
 
     # 1) 内联 CSS
     css_links = re.findall(r'<link rel="stylesheet" href="(styles/[^"]+)"\s*/?>', html)
@@ -68,6 +78,12 @@ def main():
     if not data_tag.search(html):
         sys.exit("index.html 中未找到 data/map-data.js 引用")
     html = data_tag.sub(data_code, html, count=1)
+
+    # 3b) 内联班级映射配置
+    class_tag = re.compile(r'<script src="\.\./config/classroom-map\.js"[^>]*></script>\s*')
+    class_code = "<script>window.CLASSROOM_MAP = " + raw_class.replace("</script", "<\\/script") + ";</script>\n"
+    if class_tag.search(html):
+        html = class_tag.sub(class_code, html, count=1)
 
     # 4) 内联 JS（保持 index.html 中的顺序）
     js_tags = re.findall(r'<script src="(js/[^"]+)"\s*></script>\s*', html)

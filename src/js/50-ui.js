@@ -198,6 +198,10 @@ function searchPois(q, limit=9){
   q = q.trim().toLowerCase();
   if(!q) return [];
   const scored = [];
+  // 班级命中：显示班级名，选中后定位到对应教室（数据来自独立配置）
+  for(const c of matchClassPois(q, limit)){
+    scored.push([c.score + 10, c.poi]);
+  }
   for(const p of POIS){
     const n = p.key;
     let score = -1;
@@ -231,10 +235,13 @@ function renderSuggest(q){
   let html = `<div class="sg-head">搜索结果</div>`;
   list.forEach((p,i)=>{
     const f = FLOOR_BY_ID.get(p.f);
+    const nameHtml = p.className
+      ? `${highlight(p.className, q)} <span class="sg-room">${esc(p.n)}</span>`
+      : highlight(p.n, q);
     html += `<button class="sg-item" data-i="${i}">
       <span class="sg-ico">${poiIcon(p.t)}</span>
       <span class="sg-main">
-        <span class="sg-name">${highlight(p.n, q)}</span>
+        <span class="sg-name">${nameHtml}</span>
         <span class="sg-meta">${esc(f.name)}${p.b ? " · " + esc(p.b) : ""} · ${esc(p.t)}</span>
       </span>
     </button>`;
