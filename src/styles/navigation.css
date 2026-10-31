@@ -1,0 +1,102 @@
+/* ================= 导航模式 ================= */
+.nav-layer{position:fixed;inset:0;z-index:40;pointer-events:none;display:none}
+body.navigating .nav-layer{display:block}
+body.navigating .app{display:block;height:100vh;overflow:hidden}
+body.navigating .panel{display:none}
+body.navigating .map-wrap{position:fixed;inset:0;height:100vh;width:100vw;z-index:1}
+body.navigating .rail,
+body.navigating .legend{display:none}
+body.navigating .map-head{display:flex;left:auto;right:18px;top:16px;width:auto}
+body.navigating .floor-title,
+body.navigating #fitFloor,
+body.navigating #fitRoute{display:none}
+body.navigating .compass-btn:not(.on):not(.disabled){background:rgba(255,255,255,.97)}
+body.navigating .zoom{right:18px;bottom:190px}
+body.navigating .toast{bottom:190px}
+
+/* 顶部指令条 */
+.nav-banner{position:fixed;top:16px;left:50%;transform:translateX(-50%);
+  width:min(900px,calc(100vw - 28px));pointer-events:auto;
+  background:linear-gradient(135deg,#0b3f3a,#0f5f58 70%);
+  color:#fff;border-radius:18px;padding:14px 16px;
+  display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:center;
+  box-shadow:0 18px 50px rgba(4,34,30,.35),0 2px 6px rgba(4,34,30,.2);
+  animation:navIn .28s ease-out}
+@keyframes navIn{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
+.nav-arrow{width:62px;height:62px;border-radius:16px;background:rgba(255,255,255,.12);
+  display:flex;align-items:center;justify-content:center;color:#fff;
+  border:1px solid rgba(255,255,255,.10)}
+.nav-arrow svg{width:36px;height:36px}
+.nav-copy{min-width:0}
+.nav-stepno{display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:.7px;color:#a9d8cf;
+  text-transform:uppercase}
+.nav-stepno img{width:18px;height:18px;background:#fff;border-radius:50%;padding:2px;object-fit:contain}
+.nav-text{font-size:20px;font-weight:650;margin-top:3px;line-height:1.35;letter-spacing:.2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-meta{display:flex;gap:7px;margin-top:8px;flex-wrap:wrap}
+.nav-pill{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.10);border-radius:999px;
+  padding:2px 8px;font-size:11px;color:#d9f0eb}
+.nav-pill b{color:#fff;font-weight:700}
+.nav-pill.warm{background:rgba(245,158,11,.18);border-color:rgba(245,158,11,.35);color:#fde8c3}
+.nav-close{height:34px;min-width:34px;padding:0 10px;border-radius:10px;border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.08);color:#e6f4f1;cursor:pointer;display:flex;align-items:center;gap:5px;
+  justify-content:center;transition:.15s;align-self:start;font-size:11.5px}
+.nav-close:hover{background:rgba(255,255,255,.18)}
+
+/* 底部路段卡（文字 + 图像） */
+.nav-dock{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+  width:min(900px,calc(100vw - 28px));pointer-events:auto;
+  background:#fff;border:1px solid #e5eaf0;border-radius:18px;
+  padding:12px;display:grid;grid-template-columns:250px 1fr auto;gap:14px;align-items:center;
+  box-shadow:0 20px 50px rgba(15,23,42,.20),0 2px 6px rgba(15,23,42,.06);
+  animation:navIn .28s ease-out}
+.nav-thumb{position:relative;height:138px;border-radius:12px;overflow:hidden;
+  background:#eef2f6;border:1px solid #e3e9f0}
+.nav-thumb svg{display:block;width:100%;height:100%}
+.nav-thumb-cap{position:absolute;left:8px;bottom:8px;background:rgba(255,255,255,.94);
+  border:1px solid #e5eaf0;border-radius:6px;padding:2px 6px;font-size:10px;color:#4b5563;
+  display:flex;align-items:center;gap:4px}
+.nav-thumb-cap b{color:#0f5f58}
+.nav-info{min-width:0}
+.nav-kicker{font-size:10.5px;letter-spacing:.8px;color:#9aa3af;font-weight:600;text-transform:uppercase}
+.nav-remain{font-size:16px;font-weight:650;color:#111827;margin-top:5px}
+.nav-remain small{font-size:11px;color:#6b7280;font-weight:400;margin-left:6px}
+.nav-hint{font-size:11px;color:#9aa3af;margin-top:5px;line-height:1.5}
+.nav-bar{height:5px;background:#eef1f5;border-radius:999px;margin-top:10px;overflow:hidden}
+.nav-bar i{display:block;height:100%;background:linear-gradient(90deg,#0f766e,#2dd4bf);
+  border-radius:999px;transition:width .25s ease}
+.nav-actions{display:flex;gap:8px;align-items:center}
+.nav-btn{height:44px;padding:0 16px;border-radius:12px;border:1px solid #dfe5ec;background:#fff;
+  color:#374151;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;gap:6px;transition:.15s;white-space:nowrap}
+.nav-btn:hover{border-color:#bcd1cb;color:var(--brand)}
+.nav-btn:disabled{opacity:.4;cursor:default;color:#9aa3af}
+.nav-btn.primary{background:linear-gradient(135deg,#0f766e,#0b5f59);border-color:transparent;color:#fff;
+  box-shadow:0 6px 14px rgba(15,118,110,.22)}
+.nav-btn.primary:hover{color:#fff}
+.nav-btn svg{width:15px;height:15px}
+
+@media (max-width:1200px) and (min-width:761px){
+  body.navigating .map-head{top:112px}
+}
+
+@media (max-width:760px){
+  .nav-banner{top:10px;width:calc(100vw - 20px);padding:10px 12px;border-radius:14px;
+    grid-template-columns:48px 1fr auto;gap:10px}
+  .nav-arrow{width:46px;height:46px;border-radius:12px}
+  .nav-arrow svg{width:28px;height:28px}
+  .nav-text{font-size:16px;white-space:normal}
+  .nav-meta{margin-top:6px}
+  .nav-close{height:30px;padding:0 8px;font-size:11px}
+  body.navigating .map-head{top:112px;right:10px}
+  body.navigating .compass-btn .btn-label{display:inline}
+  .nav-dock{width:calc(100vw - 20px);bottom:10px;grid-template-columns:96px 1fr;
+    padding:10px;gap:10px;border-radius:14px}
+  .nav-thumb{height:80px}
+  .nav-remain{font-size:14px}
+  .nav-hint{display:none}
+  .nav-actions{grid-column:1/-1;width:100%}
+  .nav-btn{flex:1;height:40px}
+  body.navigating .zoom{display:none}
+  body.navigating .toast{bottom:200px}
+}

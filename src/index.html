@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>深圳中学 · 室内导航</title>
+<link rel="icon" href="assets/badge.png">
+<meta name="color-scheme" content="light">
+<link rel="stylesheet" href="styles/base.css">
+<link rel="stylesheet" href="styles/panel.css">
+<link rel="stylesheet" href="styles/map.css">
+<link rel="stylesheet" href="styles/navigation.css">
+</head>
+<body>
+<div class="app">
+  <aside class="panel">
+    <div class="brand">
+      <div class="logo"><img src="assets/badge.png" alt="深圳中学校徽"></div>
+      <div>
+        <h1>室内导航</h1>
+        <p>深圳中学 · 全校区步行路线</p>
+      </div>
+    </div>
+
+    <div class="planner">
+      <div class="fields">
+        <div class="field">
+          <span class="dot s"></span>
+          <input id="startInput" type="text" placeholder="起点，如 南门 / 教学楼" autocomplete="off"
+                 role="combobox" aria-expanded="false" aria-controls="suggest">
+          <button class="icon-btn" id="pickStart" title="在地图上选择起点" aria-label="在地图上选择起点">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="4.2"/>
+            </svg>
+          </button>
+        </div>
+        <div class="field">
+          <span class="dot e"></span>
+          <input id="endInput" type="text" placeholder="终点，如 D202 / 形体室" autocomplete="off"
+                 role="combobox" aria-expanded="false">
+          <button class="icon-btn" id="pickEnd" title="在地图上选择终点" aria-label="在地图上选择终点">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="4.2"/>
+            </svg>
+          </button>
+        </div>
+        <button class="swap" id="swapBtn" title="交换起点与终点" aria-label="交换起点与终点">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M7 4v13M7 17l-3-3M7 17l3-3M17 20V7M17 7l-3 3M17 7l3 3"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="suggest" id="suggest"></div>
+    </div>
+
+    <div class="quick" id="quick">
+      <button class="chip" data-q="南门">南门</button>
+      <button class="chip" data-q="D202">教学楼 D202</button>
+      <button class="chip" data-q="形体室">文体楼 形体室</button>
+      <button class="chip" data-q="J0308">宿舍 J0308</button>
+    </div>
+
+    <div class="summary" id="summary"></div>
+    <div class="steps" id="steps"></div>
+
+    <div class="panel-foot">
+      <div class="switch-row">
+        <label>使用电梯
+          <em>学生请走楼梯，默认关闭</em>
+        </label>
+        <button class="toggle" id="liftToggle" role="switch" aria-checked="false" aria-label="使用电梯"></button>
+      </div>
+      <p class="note">距离为地图路网估算值，跨层按楼梯 9 米/层折算。数据来源：onemap.top 深圳中学室内地图。</p>
+    </div>
+  </aside>
+
+  <main class="map-wrap" id="mapWrap">
+    <div class="map-head">
+      <div class="floor-title"><b id="floorName">L1</b><span id="floorBuildings">校园地面层</span></div>
+      <div class="head-actions">
+        <button class="ghost" id="fitFloor" title="查看整层">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+            <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
+          </svg>
+          <span class="btn-label">整层</span>
+        </button>
+        <button class="ghost" id="fitRoute" title="查看整条路线">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+            <circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><path d="M8 18h4a3 3 0 0 0 3-3V9"/>
+          </svg>
+          <span class="btn-label">全程</span>
+        </button>
+        <button class="ghost compass-btn" id="compassToggle" role="switch" aria-checked="false" aria-disabled="true" title="正在检测指南针…">
+          <span class="compass-ico">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="8.3" stroke="currentColor" stroke-width="1.4"/>
+              <g id="compassNeedle">
+                <path d="M12 5.4l2.35 6.6L12 18.6l-2.35-6.6z" fill="currentColor"/>
+                <circle cx="12" cy="12" r="1.15" fill="#fff"/>
+              </g>
+            </svg>
+          </span>
+          <span class="btn-label" id="compassLabel">检测中</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="rail" id="rail"></div>
+
+    <svg id="map" xmlns="http://www.w3.org/2000/svg">
+      <g id="world">
+        <g id="floorLayer"></g>
+        <g id="routeLayer"></g>
+        <g id="markerLayer"></g>
+      </g>
+    </svg>
+
+    <div class="legend">
+      <div class="lg-row">
+        <span class="lg"><i class="sw" style="background:#E4EFFC;border-color:#B9CFE9"></i>教室</span>
+        <span class="lg"><i class="sw" style="background:#E6E8EB;border-color:#CBD0D7"></i>楼梯/电梯</span>
+        <span class="lg"><i class="sw" style="background:#DDEDEA;border-color:#C2DAD5"></i>卫生间</span>
+        <span class="lg"><i class="sw" style="background:#2563eb;border-color:#2563eb"></i>路线</span>
+      </div>
+      <div class="scale"><i id="scaleBar"></i><span id="scaleText">50 米</span></div>
+    </div>
+
+    <div class="zoom">
+      <button id="zoomIn" title="放大" aria-label="放大">+</button>
+      <button id="zoomOut" title="缩小" aria-label="缩小">−</button>
+      <button id="zoomFit" title="适应窗口" aria-label="适应窗口">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+          <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <div class="pick-hint" id="pickHint">点击地图选择位置</div>
+    <div class="no-route" id="noRoute"><b>暂未找到可行路线</b><span>请更换起点或终点</span></div>
+    <div class="tip" id="tip"></div>
+  </main>
+</div>
+
+<!-- 导航模式覆盖层 -->
+<div class="nav-layer" id="navLayer" aria-live="polite">
+  <div class="nav-banner" id="navBanner">
+    <div class="nav-arrow" id="navArrow"></div>
+    <div class="nav-copy">
+      <div class="nav-stepno">
+        <img src="assets/badge.png" alt="">
+        深圳中学 · 第 <b id="navStepNo">1</b> 步 / 共 <b id="navStepTotal">1</b> 步
+      </div>
+      <div class="nav-text" id="navText">准备出发</div>
+      <div class="nav-meta" id="navMeta"></div>
+    </div>
+    <button class="nav-close" id="navExit" title="结束导航" aria-label="结束导航">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M6 6l12 12M18 6L6 18"/>
+      </svg>
+      <span>结束</span>
+    </button>
+  </div>
+
+  <div class="nav-dock">
+    <div class="nav-thumb">
+      <div id="navThumbMap" style="width:100%;height:100%"></div>
+      <div class="nav-thumb-cap" id="navThumbCap"></div>
+    </div>
+    <div class="nav-info">
+      <div class="nav-kicker">当前路段</div>
+      <div class="nav-remain" id="navRemain">剩余 -- 米</div>
+      <div class="nav-hint" id="navHint">点击“下一步”查看后续指引</div>
+      <div class="nav-bar"><i id="navBar" style="width:0%"></i></div>
+    </div>
+    <div class="nav-actions">
+      <button class="nav-btn" id="navPrev">上一步</button>
+      <button class="nav-btn primary" id="navNext">下一步</button>
+    </div>
+  </div>
+</div>
+
+<script src="../data/map-data.js" data-map-data></script>
+<script src="js/00-data.js"></script>
+<script src="js/15-compass.js"></script>
+<script src="js/10-floorplan.js"></script>
+<script src="js/20-view.js"></script>
+<script src="js/30-router.js"></script>
+<script src="js/40-route-render.js"></script>
+<script src="js/50-ui.js"></script>
+<script src="js/60-navigation.js"></script>
+<script src="js/70-app.js"></script>
+</body>
+</html>

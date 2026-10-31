@@ -1,0 +1,42 @@
+# ---- 构建中间产物 ----
+# 开发预览用的数据包装，由 scripts/build.py 生成
+data/map-data.js
+# 地图数据抓取的原始缓存
+data/raw/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# ---- Node / 前端 ----
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ---- 临时文件与测试截图 ----
+qa-*.png
+shot*.png
+final-*.png
+*.tmp
+*.bak
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- 编辑器 / IDE ----
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ---- 环境变量与密钥 ----
+.env
+.env.*
+
+# ---- 工具本地状态 ----
+.workbuddy/
