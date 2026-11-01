@@ -16,8 +16,10 @@ from collections import defaultdict
 BASE = "https://openapi.onemap.top/ids"
 PID = "114"
 BID = "117"
-RAW = os.path.join(os.path.dirname(__file__), "raw")
-OUT = os.path.join(os.path.dirname(__file__), "map-data.json")
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(_HERE)   # 项目根目录（scripts/ 的上一级）
+RAW = os.path.join(ROOT, "data", "raw")
+OUT = os.path.join(ROOT, "data", "map-data.json")
 UNIT = 10.0  # 10 map units = 1 meter
 
 os.makedirs(RAW, exist_ok=True)

@@ -28,8 +28,8 @@ SRC = os.path.join(ROOT, "src")
 OUT = os.path.join(ROOT, "index.html")
 DATA_JSON = os.path.join(ROOT, "data", "map-data.json")
 DATA_JS = os.path.join(ROOT, "data", "map-data.js")
-CLASS_JSON = os.path.join(ROOT, "config", "classroom-map.json")
-CLASS_JS = os.path.join(ROOT, "config", "classroom-map.js")
+CLASS_JSON = os.path.join(ROOT, "data", "classroom-map.json")
+CLASS_JS = os.path.join(ROOT, "data", "classroom-map.js")
 
 
 def read(path):
@@ -39,7 +39,7 @@ def read(path):
 
 def main():
     if not os.path.exists(DATA_JSON):
-        sys.exit("缺少 data/map-data.json，请先运行 python data/build_data.py")
+        sys.exit("缺少 data/map-data.json，请先运行 python scripts/build_data.py")
 
     html = read(os.path.join(SRC, "index.html"))
     raw = read(DATA_JSON).strip()
@@ -80,7 +80,7 @@ def main():
     html = data_tag.sub(data_code, html, count=1)
 
     # 3b) 内联班级映射配置
-    class_tag = re.compile(r'<script src="\.\./config/classroom-map\.js"[^>]*></script>\s*')
+    class_tag = re.compile(r'<script src="\.\./data/classroom-map\.js"[^>]*></script>\s*')
     class_code = "<script>window.CLASSROOM_MAP = " + raw_class.replace("</script", "<\\/script") + ";</script>\n"
     if class_tag.search(html):
         html = class_tag.sub(class_code, html, count=1)

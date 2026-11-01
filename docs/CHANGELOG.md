@@ -1,5 +1,13 @@
 # 变更记录
 
+## v2.7 — 2026-11-01
+
+### 目录重排：脚本集中到 scripts/，配置并入 data/
+
+- `data/build_data.py` → `scripts/build_data.py`，与 `scripts/build.py` 同目录；输出与原始缓存仍写回 `data/map-data.json` 与 `data/raw/`，管线不变。
+- `config/` 目录取消，`classroom-map.json` / `classroom-map.js` 并入 `data/`，与 `map-data.*` 同目录。
+- 同步更新 `scripts/build.py`、`src/index.html`、`.gitignore` 与 README / BUILD / DATA 文档中的路径引用。
+
 ## v2.6 — 2026-11-01
 
 ### 项目清理：移除冗余文件

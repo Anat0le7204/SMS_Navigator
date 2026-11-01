@@ -1,5 +1,5 @@
 /* ============================== 班级 ↔ 教室映射 ==============================
- * 映射来自独立配置 config/classroom-map.json（构建时内联为 window.CLASSROOM_MAP）。
+ * 映射来自独立配置 data/classroom-map.json（构建时内联为 window.CLASSROOM_MAP）。
  * 每年班级/教室变动时只改配置文件，无需改动业务代码。
  */
 const CLASSROOM_MAP = window.CLASSROOM_MAP || { version: "0", classes: [] };

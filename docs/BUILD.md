@@ -88,7 +88,7 @@ start index.html
 ## 重新生成地图数据
 
 ```bash
-python data/build_data.py
+python scripts/build_data.py
 python scripts/build.py
 ```
 

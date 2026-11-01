@@ -1,7 +1,7 @@
 # ---- 构建中间产物 ----
 # 开发预览用的数据包装，由 scripts/build.py 生成
 data/map-data.js
-config/classroom-map.js
+data/classroom-map.js
 # 地图数据抓取的原始缓存
 data/raw/
 

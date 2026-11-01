@@ -22,7 +22,7 @@
 | `/ids/map/getAreaInfo?pid=114&lan=SC&buildingID=117&floorID=...` | 单层房间多边形 | 每层 100–300 KB |
 | `/ids/map/GetMapBuildingInfo?pid=114` | 楼层清单 | ~184 KB |
 
-`data/build_data.py` 会缓存原始响应并在缺失时重新下载。
+`scripts/build_data.py` 会缓存原始响应并在缺失时重新下载。
 
 ## 2. 楼层
 
@@ -39,7 +39,7 @@
 
 - A–D 区为教学楼，I–L 区为宿舍 I/J/K/L 栋；
 - **文体楼**的楼层已并入统一 L 编码：原 GF1（文体楼 2 层）并入 `L2`、原 L2 中文体楼部分（3 层）并入 `L3`、原 GF2（文体楼 4 层）并入 `L4`，与同层其他楼合并显示；
-- 合并逻辑内联在 `data/build_data.py`（`merge_wenti_floors`）中，重新抽取数据时自动应用；垂直边权重按新层级差重算（9.0 楼梯 / 6.0 电梯 × 层高差）；
+- 合并逻辑内联在 `scripts/build_data.py`（`merge_wenti_floors`）中，重新抽取数据时自动应用；垂直边权重按新层级差重算（9.0 楼梯 / 6.0 电梯 × 层高差）；
 - `L1` 的 318 个节点连成一体，可从教学楼走到宿舍、文体楼；
 - `L2` 及以上按楼栋分裂为多个连通分量。
 
