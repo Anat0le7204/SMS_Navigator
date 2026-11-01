@@ -1,0 +1,2181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>地图数据编辑器</title>
+<style>
+  :root {
+    --bg: #14171c; --panel: #1c2128; --panel2: #22282f; --border: #303842;
+    --text: #d7dde4; --text2: #8b949e; --accent: #4a9eff; --warn: #e3b341;
+    --err: #f85149; --ok: #56d364;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font: 13px/1.5 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg); color: var(--text); display: flex; flex-direction: column;
+  }
+  /* ===== 工具栏 ===== */
+  #toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    padding: 6px 10px; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  #toolbar .sep { width: 1px; height: 22px; background: var(--border); margin: 0 2px; }
+  button, select {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit;
+  }
+  button:hover, select:hover { border-color: var(--accent); }
+  button:disabled { opacity: .4; cursor: default; border-color: var(--border); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { color: var(--err); }
+  input[type="text"], input[type="number"] {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 8px; font: inherit; width: 90px;
+  }
+  input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: var(--accent); }
+  #searchBox { width: 210px; }
+  label.chk { display: inline-flex; align-items: center; gap: 4px; color: var(--text2); cursor: pointer; user-select: none; }
+  label.chk input { accent-color: var(--accent); }
+  /* 搜索下拉 */
+  #searchWrap { position: relative; }
+  #searchList {
+    position: absolute; top: 34px; left: 0; width: 300px; max-height: 320px; overflow: auto;
+    background: var(--panel2); border: 1px solid var(--border); border-radius: 8px;
+    z-index: 40; display: none; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  #searchList .item { padding: 6px 10px; cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
+  #searchList .item:hover { background: #2c3440; }
+  #searchList .item .nm { color: var(--text); font-weight: 600; }
+  #searchList .item .meta2 { color: var(--text2); font-size: 11px; }
+  /* ===== 主区 ===== */
+  #main { flex: 1; display: flex; min-height: 0; }
+  #canvasWrap { flex: 1; position: relative; min-width: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+  #emptyHint {
+    position: absolute; inset: 0; display: flex; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; color: var(--text2); pointer-events: none;
+    font-size: 15px;
+  }
+  #emptyHint .big { font-size: 22px; color: var(--text); font-weight: 600; }
+  /* 右侧面板 */
+  #panel {
+    width: 330px; flex: none; background: var(--panel); border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  #panel h3 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--text2); padding: 10px 12px 6px;
+  }
+  #propPanel, #valPanel { overflow: auto; padding: 0 12px 12px; }
+  #valPanel { border-top: 1px solid var(--border); max-height: 42%; }
+  .field { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+  .field > span { width: 84px; flex: none; color: var(--text2); text-align: right; font-size: 12px; }
+  .field input, .field select { flex: 1; min-width: 0; }
+  .field input[type="number"] { width: 100%; }
+  .hint { color: var(--text2); font-size: 11px; padding: 4px 2px 8px; }
+  .tag {
+    display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px;
+    background: var(--panel2); border: 1px solid var(--border); color: var(--text2);
+  }
+  .val-item { padding: 5px 8px; margin: 4px 0; border-radius: 6px; background: var(--panel2); cursor: pointer; border-left: 3px solid var(--border); }
+  .val-item:hover { background: #2c3440; }
+  .val-item.err { border-left-color: var(--err); }
+  .val-item.warn { border-left-color: var(--warn); }
+  .val-item .lv { font-size: 11px; font-weight: 700; }
+  .val-item.err .lv { color: var(--err); }
+  .val-item.warn .lv { color: var(--warn); }
+  .empty { color: var(--text2); padding: 10px 2px; font-size: 12px; }
+  /* ===== 楼层栏 ===== */
+  #floorRail {
+    display: flex; gap: 4px; padding: 6px 10px; background: var(--panel);
+    border-top: 1px solid var(--border); overflow-x: auto; align-items: center;
+  }
+  .floorBtn {
+    padding: 3px 10px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--panel2); cursor: pointer; white-space: nowrap; font-size: 12px;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .floorBtn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .floorBtn .mv { opacity: 0; font-size: 10px; padding: 0 2px; }
+  .floorBtn:hover .mv { opacity: .8; }
+  /* ===== 状态栏 ===== */
+  #status {
+    padding: 3px 12px; background: var(--panel2); border-top: 1px solid var(--border);
+    color: var(--text2); font-size: 12px; display: flex; gap: 18px; white-space: nowrap;
+    overflow: hidden;
+  }
+  #status b { color: var(--text); font-weight: 600; }
+  .dirtyDot { color: var(--warn); }
+  /* 窄屏：属性面板折叠为抽屉（§7） */
+  #panelToggle { display: none; }
+  @media (max-width: 900px) {
+    #panel {
+      position: absolute; right: 0; top: 0; bottom: 0; z-index: 20;
+      transform: translateX(100%); transition: transform .18s ease;
+      box-shadow: -8px 0 24px rgba(0,0,0,.4);
+    }
+    #panel.open { transform: translateX(0); }
+    #panelToggle { display: inline-block; }
+  }
+  /* 模态 */
+  #modalMask {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 100;
+    display: none; align-items: center; justify-content: center;
+  }
+  #modal {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px 20px; width: 420px; max-width: 92vw; max-height: 80vh; overflow: auto;
+    box-shadow: 0 16px 48px rgba(0,0,0,.6);
+  }
+  #modal h2 { font-size: 15px; margin-bottom: 10px; }
+  #modal .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+</style>
+</head>
+<body>
+
+<header id="toolbar">
+  <button id="btnImport" class="primary">导入数据</button>
+  <button id="btnExport">导出数据</button>
+  <button id="btnValidate">校验</button>
+  <div class="sep"></div>
+  <button id="btnUndo" disabled>撤销</button>
+  <button id="btnRedo" disabled>重做</button>
+  <div class="sep"></div>
+  <select id="toolSel" title="工具模式">
+    <option value="select">选择 / 拖拽</option>
+    <option value="addNode">新增节点</option>
+    <option value="addEdge">连线（点两个节点）</option>
+    <option value="addPoi">新增兴趣点</option>
+    <option value="drawPoly">绘制多边形</option>
+    <option value="addLabel">新增标签</option>
+  </select>
+  <select id="polyTypeSel" title="多边形类型（绘制时使用）"></select>
+  <select id="edgeKindSel" title="边类型（连线时使用）">
+    <option value="0">步行</option>
+    <option value="1">楼梯</option>
+    <option value="2">电梯</option>
+    <option value="3">入口</option>
+  </select>
+  <div class="sep"></div>
+  <div id="searchWrap">
+    <input type="text" id="searchBox" placeholder="搜索兴趣点 / 节点 / 标签…" autocomplete="off">
+    <div id="searchList"></div>
+  </div>
+  <div class="sep"></div>
+  <label class="chk"><input type="checkbox" id="snapChk" checked>吸附网格</label>
+  <input type="number" id="gridSize" value="10" min="1" max="200" title="网格间距（地图单位）" style="width:60px">
+  <label class="chk"><input type="checkbox" id="refChk">参考其他层</label>
+  <div class="sep"></div>
+  <details id="layerMenu" style="position:relative">
+    <summary style="cursor:pointer;list-style:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;background:var(--panel2)">图层</summary>
+    <div style="position:absolute;top:32px;left:0;z-index:30;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;display:flex;flex-direction:column;gap:4px">
+      <label class="chk"><input type="checkbox" data-layer="poly" checked>多边形</label>
+      <label class="chk"><input type="checkbox" data-layer="label" checked>标签</label>
+      <label class="chk"><input type="checkbox" data-layer="node" checked>节点</label>
+      <label class="chk"><input type="checkbox" data-layer="edge" checked>边</label>
+      <label class="chk"><input type="checkbox" data-layer="poi" checked>兴趣点</label>
+      <label class="chk"><input type="checkbox" data-layer="grid">网格</label>
+    </div>
+  </details>
+  <button id="btnDelete" class="danger" title="删除选中实体（Delete 键）">删除</button>
+  <button id="panelToggle" title="显示/隐藏属性面板">面板</button>
+  <div class="sep"></div>
+  <button id="zoomIn">＋</button>
+  <button id="zoomOut">－</button>
+  <button id="zoomFit">适配</button>
+  <button id="zoomHome" title="回到原点">原点</button>
+</header>
+
+<div id="main">
+  <div id="canvasWrap">
+    <canvas id="cv"></canvas>
+    <div id="emptyHint">
+      <div class="big">地图数据可视化编辑器</div>
+      <div>点击「导入数据」载入 <code>data/map-data.json</code>，或将文件直接拖入本窗口</div>
+      <div>编辑完成后点击「导出数据」下载，用导出的文件覆盖 data/ 后运行 python scripts/build.py 即可更新导航应用</div>
+    </div>
+  </div>
+  <aside id="panel">
+    <h3>属性</h3>
+    <div id="propPanel"><div class="empty">未选中实体。单击选择，按住 Shift 键可多选节点。</div></div>
+    <h3>校验报告</h3>
+    <div id="valPanel"><div class="empty">尚未校验。点击工具栏「校验」生成报告。</div></div>
+  </aside>
+</div>
+
+<div id="floorRail"></div>
+<div id="status">
+  <span id="stFloor">楼层: –</span>
+  <span id="stCursor">坐标: –</span>
+  <span id="stSel">选中: –</span>
+  <span id="stHover"></span>
+  <span id="stTool">工具: 选择 / 拖拽</span>
+  <span id="stDirty"></span>
+</div>
+
+<input type="file" id="fileInput" accept=".json,application/json" hidden>
+
+<div id="modalMask">
+  <div id="modal">
+    <h2 id="modalTitle"></h2>
+    <div id="modalBody"></div>
+    <div class="row" id="modalBtns"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ================================================================
+ * 地图数据可视化编辑器 — tools/map-editor.html
+ * 单文件、零依赖、离线可用。规格见 tools/DEV.md。
+ * 数据 schema 与 data/map-data.json 同构（语义等价往返）。
+ *
+ * 历史模型：补丁命令（set / ins / del），pushCmd 正向应用后入栈。
+ * 派生字段（kind-0 边权重、楼层 bounds）用 withDerive 在"几何已应用"
+ * 的状态上捕获新值，再整体回滚，最后由 pushCmd 统一正向应用。
+ * ================================================================ */
+
+// ============================== 常量 ==============================
+// 显示名映射：界面全部简体中文；JSON 数据值（t / c / code / kind）保持英文原值不变
+const EDGE_KIND_NAMES = { 0: '步行', 1: '楼梯', 2: '电梯', 3: '入口' };
+const POLY_TYPE_NAMES = {
+  outline: '轮廓', indoor: '室内', room: '房间', stair: '楼梯', lift: '电梯',
+  wc: '卫生间', mech: '机房', atrium: '中庭', other: '其他', road: '道路',
+  grass: '草地', water: '水体', dash: '虚线区', roadlabel: '路名标注'
+};
+const LABEL_CODE_NAMES = { workstationaction: '房间', stair: '楼梯', lifts: '电梯', roadmark: '路名', gate: '大门' };
+const NODE_CODE_NAMES = {
+  workstationaction: '房间', stair: '楼梯', lifts: '电梯', toilets: '卫生间',
+  'male toilets': '男卫生间', 'female toilets': '女卫生间', gate: '大门', roadmark: '路名',
+  'machine room': '机房', outline: '轮廓', ground: '地面', xuxian: '虚线', caopi: '草皮',
+  caodi: '草地', Stalls: '摊位', Garden: '花园', 'road profile': '道路断面', road: '道路',
+  ELEVATION: '高程', 'Your location': '您的位置'
+};
+const SEL_TYPE_NAMES = { node: '节点', edge: '边', poi: '兴趣点', poly: '多边形', label: '标签', floor: '楼层' };
+const polyTypeName = t => POLY_TYPE_NAMES[t] || t;
+const codeName = c => NODE_CODE_NAMES[c] || c;
+const kindName = k => EDGE_KIND_NAMES[k] || String(k);
+const selTypeName = t => SEL_TYPE_NAMES[t] || t;
+const labelCodeName = c => LABEL_CODE_NAMES[c] || c;
+const POLY_TYPES = ['outline', 'indoor', 'room', 'stair', 'lift', 'wc', 'mech', 'atrium',
+  'other', 'road', 'grass', 'water', 'dash', 'roadlabel'];
+// 深色主题下的多边形配色（沿用主应用 10-floorplan.js 的分类体系）
+const POLY_STYLE = {
+  room:      { fill: '#2a3f57', stroke: '#4a6f96' },
+  stair:     { fill: '#383e46', stroke: '#5a6270' },
+  lift:      { fill: '#383e46', stroke: '#5a6270' },
+  wc:        { fill: '#274238', stroke: '#3f6a58' },
+  mech:      { fill: '#443c2c', stroke: '#6a5c3c' },
+  atrium:    { fill: '#4a3b2c', stroke: '#745c42' },
+  indoor:    { fill: '#262b33', stroke: '#3c4450' },
+  outline:   { fill: '#20252c', stroke: '#525c6a' },
+  road:      { fill: '#22262c', stroke: '#3c4450' },
+  grass:     { fill: '#24351f', stroke: '#3f5c34' },
+  water:     { fill: '#1e3440', stroke: '#33566a' },
+  other:     { fill: '#2c2c30', stroke: '#484850' },
+  dash:      { fill: 'none',    stroke: '#444c58', dash: true },
+  roadlabel: { fill: 'none',    stroke: 'none' }
+};
+const NODE_COLORS = {
+  workstationaction: '#6fb3e0', stair: '#e0b062', lifts: '#b08ae0',
+  'male toilets': '#62c0a8', 'female toilets': '#62c0a8', toilets: '#62c0a8',
+  gate: '#e07070', roadmark: '#8a929c', 'machine room': '#c0a060',
+  outline: '#707880', ground: '#708860', xuxian: '#5c646e', caopi: '#5f7850',
+  caodi: '#5f7850', Stalls: '#7a8490', Garden: '#70a060', 'road profile': '#7a8490',
+  road: '#7a8490', ELEVATION: '#9a8ac0', 'Your location': '#e0e060'
+};
+const EDGE_COLORS = ['#4a6fa5', '#d4a24e', '#a070d0', '#d06050'];
+const LABEL_CODES = ['workstationaction', 'stair', 'lifts', 'roadmark', 'gate'];
+const POI_TYPES = ['教室 / 功能室', '楼梯', '电梯', '卫生间', '男卫生间', '女卫生间', '室外地点'];
+const SEL_COLOR = '#ffcc44';
+const KIND0_W_DECIMALS = 2;   // kind-0 权重小数位（实测源数据 1–2 位）
+const BOUNDS_MARGIN = 40;    // bounds = 多边形 bbox ± 40（实测全楼层成立）
+
+// ============================== 状态 ==============================
+const state = {
+  data: null,
+  floorId: null,
+  view: { x: 4000, y: 4000, s: 0.08 },
+  tool: 'select',
+  sel: null,
+  multi: null,
+  hover: null,
+  drag: null,
+  addEdgeFrom: null,
+  drawPts: null,
+  dirty: false,
+  showRef: false,
+  layers: { poly: true, label: true, node: true, edge: true, poi: true, grid: false }
+};
+const links = {
+  nodeLabel: new Map(),   // nodeIdx -> { fi, li }
+  labelNode: new Map(),   // fi*1e7+li -> nodeIdx
+  nodePoi: new Map(),     // nodeIdx -> poiIdx
+  namePolys: new Map()    // floorId|name -> [{ fi, pi }]
+};
+const history = { stack: [], pos: -1, cap: 100 };
+
+// ============================== DOM ==============================
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+const propPanel = $('propPanel'), valPanel = $('valPanel');
+
+// ============================== 历史（补丁命令） ==============================
+function setPatch(obj, key, nv) { return { t: 'set', obj, key, old: obj[key], new: nv }; }
+function mkSet(obj, key, oldV, newV) { return { t: 'set', obj, key, old: oldV, new: newV }; }
+function insPatch(arr, idx, items) { return { t: 'ins', arr, idx, items: items.slice() }; }
+function delPatch(arr, idx, items) { return { t: 'del', arr, idx, items: items.slice() }; }
+
+function applyPatches(patches, forward) {
+  for (let i = 0; i < patches.length; i++) {
+    const p = patches[forward ? i : patches.length - 1 - i];
+    if (p.t === 'set') p.obj[p.key] = forward ? p.new : p.old;
+    else if (p.t === 'ins') {
+      if (forward) p.arr.splice(p.idx, 0, ...p.items);
+      else p.arr.splice(p.idx, p.items.length);
+    } else { // del
+      if (forward) p.arr.splice(p.idx, p.items.length);
+      else p.arr.splice(p.idx, 0, ...p.items);
+    }
+  }
+}
+
+/* 几何补丁 + 派生补丁（权重/bounds）：
+ * 先临时正向应用几何补丁，在新状态上捕获派生值（old 仍正确，因为派生字段
+ * 未被几何补丁触碰），回滚几何，返回合并补丁列表（由 pushCmd 正向应用）。 */
+function withDerive(geoPatches, makeDerived) {
+  if (!makeDerived) return geoPatches;
+  applyPatches(geoPatches, true);
+  let derived = makeDerived() || [];
+  if (!Array.isArray(derived)) derived = [derived];
+  applyPatches(geoPatches, false);
+  return geoPatches.concat(derived);
+}
+
+function pushCmd(desc, patches) {
+  if (!patches || !patches.length) return;
+  applyPatches(patches, true);
+  history.stack.length = history.pos + 1;
+  history.stack.push({ desc, patches });
+  if (history.stack.length > history.cap) history.stack.shift();
+  history.pos = history.stack.length - 1;
+  state.dirty = true;
+  $('stDirty').innerHTML = '<span class="dirtyDot">● 有未导出的修改</span>';
+  updateUndoBtns();
+}
+function undo() {
+  if (history.pos < 0) return;
+  applyPatches(history.stack[history.pos].patches, false);
+  history.pos--;
+  afterHistory();
+}
+function redo() {
+  if (history.pos >= history.stack.length - 1) return;
+  history.pos++;
+  applyPatches(history.stack[history.pos].patches, true);
+  afterHistory();
+}
+function afterHistory() {
+  rebuildLinks();
+  updateUndoBtns();
+  state.dirty = true;
+  $('stDirty').innerHTML = '<span class="dirtyDot">● 有未导出的修改</span>';
+  // 撤销/重做后选中实体可能已不存在，清理悬空引用
+  if (state.sel && !selExists(state.sel)) state.sel = null;
+  if (state.multi) state.multi = state.multi.filter(ni => ni < state.data.nodes.length);
+  // floorId 也可能被撤销掉（如撤销「新增楼层」）——回退优先 L1
+  if (!state.data.floors.some(f => f.id === state.floorId)) {
+    const has = id => state.data.floors.some(f => f.id === id);
+    state.floorId = has('L1') ? 'L1'
+      : (state.data.meta.floorOrder.find(has) || (state.data.floors[0] && state.data.floors[0].id) || null);
+    renderRail();
+  }
+  renderPropPanel();
+  render();
+}
+function selExists(sel) {
+  const d = state.data;
+  if (!d || !sel) return false;
+  if (sel.type === 'node') return sel.ni < d.nodes.length;
+  if (sel.type === 'edge') return sel.ei < d.edges.length;
+  if (sel.type === 'poi') return sel.pi < d.pois.length;
+  if (sel.type === 'poly') return !!d.floors[sel.fi] && sel.pi < d.floors[sel.fi].polys.length;
+  if (sel.type === 'label') return !!d.floors[sel.fi] && sel.li < d.floors[sel.fi].labels.length;
+  if (sel.type === 'floor') return sel.fi < d.floors.length;
+  return false;
+}
+function updateUndoBtns() {
+  $('btnUndo').disabled = history.pos < 0;
+  $('btnRedo').disabled = history.pos >= history.stack.length - 1;
+}
+
+// ============================== 链接映射（影子实体） ==============================
+function rebuildLinks() {
+  links.nodeLabel.clear(); links.labelNode.clear();
+  links.nodePoi.clear(); links.namePolys.clear();
+  const d = state.data;
+  if (!d) return;
+  // 标签 ↔ 节点：同楼层 + xy 重合（导入时按 xy 建立映射，Q1）
+  const xyKey = new Map();
+  d.nodes.forEach((n, i) => {
+    const k = n[2] + '|' + Math.round(n[0] * 10) + '|' + Math.round(n[1] * 10);
+    if (!xyKey.has(k)) xyKey.set(k, i);
+  });
+  d.floors.forEach((fl, fi) => {
+    (fl.labels || []).forEach((lb, li) => {
+      const k = fi + '|' + Math.round(lb.x * 10) + '|' + Math.round(lb.y * 10);
+      const ni = xyKey.get(k);
+      if (ni !== undefined) {
+        links.nodeLabel.set(ni, { fi, li });
+        links.labelNode.set(fi * 1e7 + li, ni);
+      }
+    });
+    (fl.polys || []).forEach((po, pi) => {
+      if (po.n) {
+        const k = fl.id + '|' + po.n;
+        if (!links.namePolys.has(k)) links.namePolys.set(k, []);
+        links.namePolys.get(k).push({ fi, pi });
+      }
+    });
+  });
+  d.pois.forEach((p, i) => {
+    if (p.i >= 0 && p.i < d.nodes.length && !links.nodePoi.has(p.i)) links.nodePoi.set(p.i, i);
+  });
+}
+
+// ============================== 导入 / 导出 ==============================
+function precheck(obj) {
+  const errs = [];
+  if (!obj || typeof obj !== 'object') return ['根节点不是对象'];
+  if (!obj.meta || typeof obj.meta !== 'object') errs.push('缺少 meta（元数据）字段');
+  if (!Array.isArray(obj.floors) || !obj.floors.length) errs.push('缺少 floors（楼层）数组');
+  if (!Array.isArray(obj.nodes)) errs.push('缺少 nodes（节点）数组');
+  if (!Array.isArray(obj.edges)) errs.push('缺少 edges（边）数组');
+  if (!Array.isArray(obj.pois)) errs.push('缺少 pois（兴趣点）数组');
+  if (errs.length) return errs;
+  obj.nodes.forEach((n, i) => {
+    if (!Array.isArray(n) || n.length < 6) errs.push('nodes[' + i + '] 格式错误（应为长度 ≥6 的数组）');
+    else if (!Number.isFinite(n[0]) || !Number.isFinite(n[1])) errs.push('nodes[' + i + '] 坐标不是有效数字');
+  });
+  obj.edges.forEach((e, i) => {
+    if (!Array.isArray(e) || e.length < 4) errs.push('edges[' + i + '] 格式错误（应为长度 ≥4 的数组）');
+    else if (!Number.isInteger(e[0]) || !Number.isInteger(e[1])) errs.push('edges[' + i + '] 端点编号不是整数');
+  });
+  obj.floors.forEach((f, i) => {
+    if (!f || typeof f.id !== 'string') errs.push('floors[' + i + '] 缺少 id（楼层编号）');
+    if (!Array.isArray(f.polys)) errs.push('floors[' + i + '] 缺少 polys（多边形）数组');
+    if (!Array.isArray(f.labels)) errs.push('floors[' + i + '] 缺少 labels（标签）数组');
+  });
+  return errs.slice(0, 20);
+}
+
+function importData(obj) {
+  state.data = obj;
+  const idMap = new Map(obj.floors.map((f, i) => [f.id, i]));
+  state.floorId = idMap.has('L1') ? 'L1' : obj.floors[0].id;
+  state.sel = null; state.multi = null; state.addEdgeFrom = null; state.drawPts = null;
+  history.stack = []; history.pos = -1;
+  state.dirty = false;
+  rebuildLinks();
+  updateUndoBtns();
+  $('stDirty').innerHTML = '';
+  $('emptyHint').style.display = 'none';
+  renderRail();
+  renderValPanel(null);
+  fitView();
+  renderPropPanel();
+  render();
+}
+
+function exportJSON() {
+  const d = state.data;
+  const out = {
+    meta: {
+      name: d.meta.name, source: d.meta.source, unitPerMeter: d.meta.unitPerMeter,
+      floorOrder: d.meta.floorOrder.slice(), mainComponent: d.meta.mainComponent
+    },
+    floors: d.floors.map(f => ({
+      id: f.id, name: f.name, note: f.note, level: f.level, kind: f.kind,
+      bounds: f.bounds.slice(),
+      polys: f.polys.map(p => {
+        const o = { t: p.t, p: p.p.slice() };
+        if (p.n !== undefined) o.n = p.n;
+        return o;
+      }),
+      labels: f.labels.map(l => ({ n: l.n, x: l.x, y: l.y, c: l.c }))
+    })),
+    nodes: d.nodes.map(n => n.slice()),
+    edges: d.edges.map(e => e.slice()),
+    pois: d.pois.map(p => ({ id: p.id, n: p.n, f: p.f, x: p.x, y: p.y, t: p.t, b: p.b, i: p.i }))
+  };
+  return JSON.stringify(out, null, 4);
+}
+
+function download(filename, text) {
+  const blob = new Blob([text], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+// ============================== 坐标变换 ==============================
+function w2s(x, y) {
+  return [(x - state.view.x) * state.view.s + cv.clientWidth / 2,
+          (y - state.view.y) * state.view.s + cv.clientHeight / 2];
+}
+function s2w(sx, sy) {
+  return [(sx - cv.clientWidth / 2) / state.view.s + state.view.x,
+          (sy - cv.clientHeight / 2) / state.view.s + state.view.y];
+}
+function fitView() {
+  const fl = curFloor();
+  if (!fl) return;
+  const b = fl.bounds;
+  const w = cv.clientWidth || 800, h = cv.clientHeight || 600;
+  const bw = Math.max(1, b[2] - b[0]), bh = Math.max(1, b[3] - b[1]);
+  state.view.x = (b[0] + b[2]) / 2;
+  state.view.y = (b[1] + b[3]) / 2;
+  state.view.s = Math.min(w / bw, h / bh) * 0.92;
+}
+function curFloorIdx() {
+  const d = state.data; if (!d) return -1;
+  return d.floors.findIndex(f => f.id === state.floorId);
+}
+function curFloor() {
+  const i = curFloorIdx();
+  return i >= 0 ? state.data.floors[i] : null;
+}
+
+// ============================== 派生字段（Q2） ==============================
+// kind-0 权重 = 欧氏距离 / unitPerMeter；kind-1/2/3 不自动
+function recalcKind0Patches(nodeIdxs) {
+  const d = state.data, patches = [];
+  const unit = (d.meta && d.meta.unitPerMeter) || 10;
+  const set = new Set(nodeIdxs);
+  d.edges.forEach(e => {
+    if (e[3] !== 0) return;
+    if (!set.has(e[0]) && !set.has(e[1])) return;
+    const a = d.nodes[e[0]], b = d.nodes[e[1]];
+    const w = Math.round(Math.hypot(a[0] - b[0], a[1] - b[1]) / unit * 10 ** KIND0_W_DECIMALS) / 10 ** KIND0_W_DECIMALS;
+    if (w > 0 && Math.abs(w - e[2]) > 1e-9) patches.push(setPatch(e, 2, w));
+  });
+  return patches;
+}
+function boundsOfFloor(fl) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  fl.polys.forEach(po => {
+    for (let i = 0; i < po.p.length; i += 2) {
+      x0 = Math.min(x0, po.p[i]); x1 = Math.max(x1, po.p[i]);
+      y0 = Math.min(y0, po.p[i + 1]); y1 = Math.max(y1, po.p[i + 1]);
+    }
+  });
+  if (x0 === Infinity) return fl.bounds.slice();
+  return [x0 - BOUNDS_MARGIN, y0 - BOUNDS_MARGIN, x1 + BOUNDS_MARGIN, y1 + BOUNDS_MARGIN];
+}
+function recalcBoundsPatch(fi) {
+  return setPatch(state.data.floors[fi], 'bounds', boundsOfFloor(state.data.floors[fi]));
+}
+
+// ============================== 影子实体联动（Q1） ==============================
+function moveNodePatches(ni, nx, ny) {
+  const d = state.data, patches = [];
+  const n = d.nodes[ni];
+  patches.push(setPatch(n, 0, nx), setPatch(n, 1, ny));
+  const lab = links.nodeLabel.get(ni);
+  if (lab) {
+    const lb = d.floors[lab.fi].labels[lab.li];
+    patches.push(setPatch(lb, 'x', nx), setPatch(lb, 'y', ny));
+  }
+  const poiIdx = links.nodePoi.get(ni);
+  if (poiIdx !== undefined) {
+    const p = d.pois[poiIdx];
+    patches.push(setPatch(p, 'x', nx), setPatch(p, 'y', ny));
+  }
+  return patches;
+}
+function renameNodePatches(ni, newName) {
+  const d = state.data, patches = [];
+  const n = d.nodes[ni];
+  const oldName = n[4];
+  patches.push(setPatch(n, 4, newName));
+  const lab = links.nodeLabel.get(ni);
+  if (lab) {
+    patches.push(setPatch(d.floors[lab.fi].labels[lab.li], 'n', newName));
+  }
+  const poiIdx = links.nodePoi.get(ni);
+  if (poiIdx !== undefined) {
+    patches.push(setPatch(d.pois[poiIdx], 'n', newName));
+  }
+  if (oldName) {
+    const floorId = d.floors[n[2]] ? d.floors[n[2]].id : null;
+    if (floorId) {
+      (links.namePolys.get(floorId + '|' + oldName) || []).forEach(({ fi, pi }) => {
+        patches.push(setPatch(d.floors[fi].polys[pi], 'n', newName));
+      });
+    }
+  }
+  return patches;
+}
+
+// ============================== 渲染 ==============================
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== w * dpr || cv.height !== h * dpr) {
+    cv.width = w * dpr; cv.height = h * dpr;
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function drawPolyPath(p) {
+  ctx.beginPath();
+  for (let i = 0; i < p.length; i += 2) {
+    const s = w2s(p[i], p[i + 1]);
+    i === 0 ? ctx.moveTo(s[0], s[1]) : ctx.lineTo(s[0], s[1]);
+  }
+  ctx.closePath();
+}
+
+function render() {
+  resize();
+  const w = cv.clientWidth, h = cv.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#10131a';
+  ctx.fillRect(0, 0, w, h);
+  const d = state.data;
+  if (!d) return;
+  const fi = curFloorIdx();
+  const floor = d.floors[fi];
+  $('stFloor').textContent = '楼层: ' + (floor ? floor.id : '–');
+  if (!floor) return;
+
+  // 网格层
+  if (state.layers.grid) {
+    const g = Math.max(1, Number($('gridSize').value) || 10) * 10; // 10 格 = 10 m
+    const [gx0, gy0] = s2w(0, 0), [gx1, gy1] = s2w(w, h);
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = Math.floor(gx0 / g) * g; x <= gx1; x += g) {
+      const s = w2s(x, 0); ctx.moveTo(s[0], 0); ctx.lineTo(s[0], h);
+    }
+    for (let y = Math.floor(gy0 / g) * g; y <= gy1; y += g) {
+      const s = w2s(0, y); ctx.moveTo(0, s[1]); ctx.lineTo(w, s[1]);
+    }
+    ctx.stroke();
+  }
+
+  // 参考其他楼层
+  if (state.showRef) {
+    ctx.globalAlpha = 0.12;
+    d.floors.forEach((f, i) => {
+      if (i === fi) return;
+      f.polys.forEach(po => {
+        const st = POLY_STYLE[po.t] || POLY_STYLE.other;
+        drawPolyPath(po.p);
+        if (st.fill !== 'none') { ctx.fillStyle = st.fill; ctx.fill(); }
+        if (st.stroke !== 'none') { ctx.strokeStyle = st.stroke; ctx.lineWidth = 1; ctx.stroke(); }
+      });
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  // 多边形（outline 先画）
+  if (state.layers.poly) {
+    const order = { outline: 0, indoor: 1 };
+    const sorted = floor.polys.map((po, pi) => ({ po, pi }))
+      .sort((a, b) => (order[a.po.t] !== undefined ? order[a.po.t] : 2) - (order[b.po.t] !== undefined ? order[b.po.t] : 2));
+    sorted.forEach(({ po, pi }) => {
+      const st = POLY_STYLE[po.t] || POLY_STYLE.other;
+      drawPolyPath(po.p);
+      if (st.dash) ctx.setLineDash([6, 4]);
+      if (st.fill !== 'none') { ctx.fillStyle = st.fill; ctx.fill(); }
+      if (st.stroke !== 'none') {
+        const isSel = state.sel && state.sel.type === 'poly' && state.sel.fi === fi && state.sel.pi === pi;
+        ctx.strokeStyle = isSel ? SEL_COLOR : st.stroke;
+        ctx.lineWidth = isSel ? 2.2 : 1;
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    });
+  }
+
+  // 边（任一端点在当前层）
+  if (state.layers.edge) d.edges.forEach((e, ei) => {
+    const a = d.nodes[e[0]], b = d.nodes[e[1]];
+    if (!a || !b) return;
+    if (a[2] !== fi && b[2] !== fi) return;
+    const sa = w2s(a[0], a[1]), sb = w2s(b[0], b[1]);
+    if (Math.max(sa[0], sb[0]) < -20 || Math.min(sa[0], sb[0]) > w + 20 ||
+        Math.max(sa[1], sb[1]) < -20 || Math.min(sa[1], sb[1]) > h + 20) return;
+    const isSel = state.sel && state.sel.type === 'edge' && state.sel.ei === ei;
+    ctx.beginPath();
+    ctx.moveTo(sa[0], sa[1]); ctx.lineTo(sb[0], sb[1]);
+    ctx.strokeStyle = isSel ? SEL_COLOR : (EDGE_COLORS[e[3] & 3] || EDGE_COLORS[0]);
+    ctx.lineWidth = isSel ? 3 : (e[3] === 0 ? 1.2 : 2);
+    if (e[3] === 3) ctx.setLineDash([5, 3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // 节点（当前层）
+  if (state.layers.node) d.nodes.forEach((n, ni) => {
+    if (n[2] !== fi) return;
+    const s = w2s(n[0], n[1]);
+    if (s[0] < -10 || s[0] > w + 10 || s[1] < -10 || s[1] > h + 10) return;
+    const isSel = state.sel && state.sel.type === 'node' && state.sel.ni === ni;
+    const isMulti = state.multi && state.multi.indexOf(ni) >= 0;
+    const isEdgeFrom = state.addEdgeFrom === ni;
+    ctx.beginPath();
+    ctx.arc(s[0], s[1], (isSel || isMulti || isEdgeFrom) ? 5 : 2.6, 0, Math.PI * 2);
+    ctx.fillStyle = (isSel || isEdgeFrom) ? SEL_COLOR : (isMulti ? '#ffd166' : (NODE_COLORS[n[3]] || '#5a6470'));
+    ctx.fill();
+    if (isSel || isMulti || isEdgeFrom) {
+      ctx.strokeStyle = SEL_COLOR; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+  });
+
+  // POI（当前层）
+  if (state.layers.poi) d.pois.forEach((p, pi) => {
+    if (p.f !== floor.id) return;
+    const s = w2s(p.x, p.y);
+    if (s[0] < -10 || s[0] > w + 10 || s[1] < -10 || s[1] > h + 10) return;
+    const isSel = state.sel && state.sel.type === 'poi' && state.sel.pi === pi;
+    const r = isSel ? 5 : 2.4;
+    ctx.fillStyle = isSel ? SEL_COLOR : '#e08a5a';
+    ctx.fillRect(s[0] - r, s[1] - r, r * 2, r * 2);
+  });
+
+  // 标签（当前层，缩小不显示）
+  if (state.layers.label && state.view.s > 0.28) {
+    const fs = Math.min(14, Math.max(9, state.view.s * 22));
+    ctx.font = fs + 'px "Microsoft YaHei", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    (floor.labels || []).forEach((lb, li) => {
+      const s = w2s(lb.x, lb.y);
+      if (s[0] < -40 || s[0] > w + 40 || s[1] < -14 || s[1] > h + 14) return;
+      const isSel = state.sel && state.sel.type === 'label' && state.sel.fi === fi && state.sel.li === li;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(16,19,26,0.85)';
+      ctx.strokeText(lb.n, s[0], s[1]);
+      ctx.fillStyle = isSel ? SEL_COLOR : '#aab4c0';
+      ctx.fillText(lb.n, s[0], s[1]);
+    });
+    ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+  }
+
+  // 选中多边形的顶点句柄
+  if (state.sel && state.sel.type === 'poly' && state.sel.fi === fi) {
+    const po = floor.polys[state.sel.pi];
+    if (po) {
+      for (let i = 0; i < po.p.length; i += 2) {
+        const s = w2s(po.p[i], po.p[i + 1]);
+        ctx.fillStyle = state.sel.vertex === i / 2 ? SEL_COLOR : '#7ab8ff';
+        ctx.fillRect(s[0] - 3.5, s[1] - 3.5, 7, 7);
+        const j = (i + 2) % po.p.length;
+        const m = w2s((po.p[i] + po.p[j]) / 2, (po.p[i + 1] + po.p[j + 1]) / 2);
+        ctx.fillStyle = 'rgba(122,184,255,0.45)';
+        ctx.beginPath(); ctx.arc(m[0], m[1], 3, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+
+  // 连线预览
+  if (state.addEdgeFrom !== null && state.addEdgeFrom !== undefined && state.hoverWorld) {
+    const a = d.nodes[state.addEdgeFrom];
+    if (a) {
+      const sa = w2s(a[0], a[1]);
+      const sb = w2s(state.hoverWorld[0], state.hoverWorld[1]);
+      ctx.beginPath(); ctx.moveTo(sa[0], sa[1]); ctx.lineTo(sb[0], sb[1]);
+      ctx.strokeStyle = SEL_COLOR; ctx.lineWidth = 1.6; ctx.setLineDash([5, 4]);
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+  // 绘制多边形预览
+  if (state.drawPts && state.drawPts.length) {
+    ctx.beginPath();
+    state.drawPts.forEach((p, i) => {
+      const s = w2s(p[0], p[1]);
+      i === 0 ? ctx.moveTo(s[0], s[1]) : ctx.lineTo(s[0], s[1]);
+    });
+    if (state.hoverWorld) {
+      const s = w2s(state.hoverWorld[0], state.hoverWorld[1]);
+      ctx.lineTo(s[0], s[1]);
+    }
+    ctx.strokeStyle = SEL_COLOR; ctx.lineWidth = 1.6;
+    ctx.stroke();
+    state.drawPts.forEach(p => {
+      const s = w2s(p[0], p[1]);
+      ctx.fillStyle = SEL_COLOR; ctx.fillRect(s[0] - 2.5, s[1] - 2.5, 5, 5);
+    });
+  }
+  // 框选
+  if (state.drag && state.drag.type === 'box') {
+    const dr = state.drag;
+    ctx.strokeStyle = SEL_COLOR; ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.strokeRect(Math.min(dr.sx0, dr.sx1), Math.min(dr.sy0, dr.sy1),
+      Math.abs(dr.sx1 - dr.sx0), Math.abs(dr.sy1 - dr.sy0));
+    ctx.setLineDash([]);
+  }
+}
+
+// ============================== 拾取 ==============================
+function hoverSummary(hit) {
+  const d = state.data;
+  if (!hit || !d) return '';
+  if (hit.type === 'node') {
+    const n = d.nodes[hit.ni];
+    return '节点 #' + hit.ni + ' · ' + (n[4] || codeName(n[3]) || '无名') + ' @' + (d.floors[n[2]] ? d.floors[n[2]].id : '?') + ' (' + n[0].toFixed(0) + ',' + n[1].toFixed(0) + ')';
+  }
+  if (hit.type === 'edge') {
+    const e = d.edges[hit.ei];
+    return '边 #' + hit.ei + ' · ' + kindName(e[3]) + ' · 权重 ' + e[2];
+  }
+  if (hit.type === 'poi') {
+    const p = d.pois[hit.pi];
+    return '兴趣点 #' + hit.pi + ' · ' + (p.n || '无名') + ' · ' + p.t + ' @' + p.f;
+  }
+  if (hit.type === 'label') {
+    const lb = d.floors[hit.fi].labels[hit.li];
+    return '标签 #' + hit.li + ' · ' + lb.n + ' @' + d.floors[hit.fi].id;
+  }
+  if (hit.type === 'poly') {
+    const po = d.floors[hit.fi].polys[hit.pi];
+    return '多边形 #' + hit.pi + ' · ' + polyTypeName(po.t) + (po.n ? ' · ' + po.n : '') + ' @' + d.floors[hit.fi].id;
+  }
+  return '';
+}
+function distToSeg(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const L2 = dx * dx + dy * dy;
+  if (L2 === 0) return Math.hypot(px - x1, py - y1);
+  let t = ((px - x1) * dx + (py - y1) * dy) / L2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+}
+function pointInPoly(x, y, p) {
+  let inside = false;
+  for (let i = 0, j = p.length - 2; i < p.length; j = i, i += 2) {
+    const xi = p[i], yi = p[i + 1], xj = p[j], yj = p[j + 1];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function pickEntity(wx, wy) {
+  const d = state.data, fi = curFloorIdx(), floor = d.floors[fi];
+  const tol = 6 / state.view.s;
+  let best = -1, bestD = tol;
+  d.nodes.forEach((n, ni) => {
+    if (n[2] !== fi) return;
+    const dist = Math.hypot(n[0] - wx, n[1] - wy);
+    if (dist < bestD) { bestD = dist; best = ni; }
+  });
+  if (best >= 0) return { type: 'node', ni: best };
+  let bestE = -1, bestED = tol;
+  d.edges.forEach((e, ei) => {
+    const a = d.nodes[e[0]], b = d.nodes[e[1]];
+    if (!a || !b || (a[2] !== fi && b[2] !== fi)) return;
+    const dist = distToSeg(wx, wy, a[0], a[1], b[0], b[1]);
+    if (dist < bestED) { bestED = dist; bestE = ei; }
+  });
+  if (bestE >= 0) return { type: 'edge', ei: bestE };
+  let bestP = -1, bestPD = tol;
+  d.pois.forEach((p, pi) => {
+    if (p.f !== floor.id) return;
+    const dist = Math.hypot(p.x - wx, p.y - wy);
+    if (dist < bestPD) { bestPD = dist; bestP = pi; }
+  });
+  if (bestP >= 0) return { type: 'poi', pi: bestP };
+  // 标签（文本热区：按字宽估算包围盒，落在节点上的标签由节点优先命中）
+  let bestL = null, bestLD = Infinity;
+  d.floors[fi].labels.forEach((lb, li) => {
+    const hw = Math.max(12, String(lb.n).length * 3.5), hh = 9;
+    const dx = Math.abs(lb.x - wx), dy = Math.abs(lb.y - wy);
+    if (dx < hw / state.view.s && dy < hh / state.view.s) {
+      const dd = dx + dy;
+      if (dd < bestLD) { bestLD = dd; bestL = { type: 'label', fi, li }; }
+    }
+  });
+  if (bestL) return bestL;
+  for (let pi = floor.polys.length - 1; pi >= 0; pi--) {
+    const po = floor.polys[pi];
+    if (po.t === 'roadlabel') continue;
+    if (pointInPoly(wx, wy, po.p)) return { type: 'poly', fi, pi };
+  }
+  return null;
+}
+
+// ============================== 交互 ==============================
+function snapVal(v) {
+  if (!$('snapChk').checked) return v;
+  const g = Math.max(1, Number($('gridSize').value) || 10);
+  return Math.round(v / g) * g;
+}
+function canvasPos(e) {
+  const r = cv.getBoundingClientRect();
+  return [e.clientX - r.left, e.clientY - r.top];
+}
+
+cv.addEventListener('pointerdown', e => {
+  if (!state.data) return;
+  cv.setPointerCapture(e.pointerId);
+  const pos = canvasPos(e);
+  const wxy = s2w(pos[0], pos[1]);
+  const wx = wxy[0], wy = wxy[1];
+  const tool = state.tool;
+
+  if (tool === 'addNode') {
+    const nx = snapVal(wx), ny = snapVal(wy);
+    const node = [nx, ny, curFloorIdx(), '', '', ''];
+    pushCmd('新增节点', [insPatch(state.data.nodes, state.data.nodes.length, [node])]);
+    state.sel = { type: 'node', ni: state.data.nodes.length - 1 };
+    rebuildLinks(); renderPropPanel(); render();
+    return;
+  }
+  if (tool === 'addPoi') {
+    const nx = snapVal(wx), ny = snapVal(wy);
+    const fi = curFloorIdx(), floor = curFloor();
+    let near = -1, nd = Infinity;
+    state.data.nodes.forEach((n, ni) => {
+      if (n[2] !== fi) return;
+      const dd = Math.hypot(n[0] - nx, n[1] - ny);
+      if (dd < nd) { nd = dd; near = ni; }
+    });
+    const poi = { id: '', n: '', f: floor.id, x: nx, y: ny, t: '教室 / 功能室', b: '', i: near };
+    pushCmd('新增兴趣点', [insPatch(state.data.pois, state.data.pois.length, [poi])]);
+    state.sel = { type: 'poi', pi: state.data.pois.length - 1 };
+    rebuildLinks(); renderPropPanel(); render();
+    return;
+  }
+  if (tool === 'addLabel') {
+    const nx = snapVal(wx), ny = snapVal(wy);
+    const floor = curFloor();
+    const lb = { n: '', x: nx, y: ny, c: 'workstationaction' };
+    pushCmd('新增标签', [insPatch(floor.labels, floor.labels.length, [lb])]);
+    state.sel = { type: 'label', fi: curFloorIdx(), li: floor.labels.length - 1 };
+    rebuildLinks(); renderPropPanel(); render();
+    return;
+  }
+  if (tool === 'drawPoly') {
+    if (e.detail > 1) return; // 双击的第二次点击不落点
+    if (!state.drawPts) state.drawPts = [];
+    state.drawPts.push([snapVal(wx), snapVal(wy)]);
+    render();
+    return;
+  }
+  if (tool === 'addEdge') {
+    const hit = pickEntity(wx, wy);
+    if (hit && hit.type === 'node') {
+      if (state.addEdgeFrom === null || state.addEdgeFrom === undefined) {
+        state.addEdgeFrom = hit.ni;
+      } else if (state.addEdgeFrom !== hit.ni) {
+        const a = state.data.nodes[state.addEdgeFrom], b = state.data.nodes[hit.ni];
+        const kind = Number($('edgeKindSel').value) || 0;
+        const unit = (state.data.meta && state.data.meta.unitPerMeter) || 10;
+        const w = Math.round(Math.hypot(a[0] - b[0], a[1] - b[1]) / unit * 100) / 100;
+        pushCmd('新增边', [insPatch(state.data.edges, state.data.edges.length, [[state.addEdgeFrom, hit.ni, w, kind]])]);
+        state.addEdgeFrom = null;
+        state.sel = { type: 'edge', ei: state.data.edges.length - 1 };
+        renderPropPanel();
+      }
+      render();
+    }
+    return;
+  }
+
+  // ---- select 工具 ----
+  const hit = pickEntity(wx, wy);
+  if (!hit) {
+    if (e.shiftKey) {
+      state.drag = { type: 'box', sx0: pos[0], sy0: pos[1], sx1: pos[0], sy1: pos[1] };
+    } else {
+      state.drag = { type: 'pan', sx0: pos[0], sy0: pos[1], vx0: state.view.x, vy0: state.view.y };
+      if (state.sel || state.multi) { state.sel = null; state.multi = null; renderPropPanel(); }
+    }
+    render();
+    return;
+  }
+  // Shift 多选节点
+  if (e.shiftKey && hit.type === 'node') {
+    if (!state.multi) state.multi = (state.sel && state.sel.type === 'node') ? [state.sel.ni] : [];
+    const k = state.multi.indexOf(hit.ni);
+    if (k >= 0) state.multi.splice(k, 1); else state.multi.push(hit.ni);
+    state.sel = state.multi.length ? { type: 'node', ni: state.multi[state.multi.length - 1] } : null;
+    renderPropPanel(); render();
+    return;
+  }
+
+  // 拖拽移动（多选时批量移动，Q4）
+  const multiMove = state.multi && state.multi.length > 1 && hit.type === 'node' && state.multi.indexOf(hit.ni) >= 0;
+  if (multiMove) {
+    const items = state.multi.map(ni => {
+      const n = state.data.nodes[ni];
+      const it = { ni, node: [n[0], n[1]] };
+      const lab = links.nodeLabel.get(ni);
+      if (lab) { const lb = state.data.floors[lab.fi].labels[lab.li]; it.label = { ref: lb, x: lb.x, y: lb.y }; }
+      const pi2 = links.nodePoi.get(ni);
+      if (pi2 !== undefined) { const p = state.data.pois[pi2]; it.poi = { ref: p, x: p.x, y: p.y }; }
+      return it;
+    });
+    state.drag = { type: 'moveNodes', items, wx0: wx, wy0: wy };
+    render();
+    return;
+  }
+
+  state.multi = null;
+  state.sel = hit;
+  renderPropPanel();
+
+  if (hit.type === 'node') {
+    const n = state.data.nodes[hit.ni];
+    const olds = { node: [n[0], n[1]] };
+    const lab = links.nodeLabel.get(hit.ni);
+    if (lab) { const lb = state.data.floors[lab.fi].labels[lab.li]; olds.label = { ref: lb, x: lb.x, y: lb.y }; }
+    const pi2 = links.nodePoi.get(hit.ni);
+    if (pi2 !== undefined) { const p = state.data.pois[pi2]; olds.poi = { ref: p, x: p.x, y: p.y }; }
+    state.drag = { type: 'moveNode', ni: hit.ni, wx0: wx, wy0: wy, olds };
+  } else if (hit.type === 'poi') {
+    const p = state.data.pois[hit.pi];
+    state.drag = { type: 'movePoi', pi: hit.pi, wx0: wx, wy0: wy, olds: { x: p.x, y: p.y } };
+  } else if (hit.type === 'label') {
+    const lb = state.data.floors[hit.fi].labels[hit.li];
+    state.drag = { type: 'moveLabel', fi: hit.fi, li: hit.li, wx0: wx, wy0: wy, olds: { x: lb.x, y: lb.y } };
+  } else if (hit.type === 'poly') {
+    const po = state.data.floors[hit.fi].polys[hit.pi];
+    // 顶点命中优先
+    let vHit = -1, vD = 8 / state.view.s;
+    for (let i = 0; i < po.p.length; i += 2) {
+      const dd = Math.hypot(po.p[i] - wx, po.p[i + 1] - wy);
+      if (dd < vD) { vD = dd; vHit = i / 2; }
+    }
+    if (vHit >= 0) {
+      state.sel = { type: 'poly', fi: hit.fi, pi: hit.pi, vertex: vHit };
+      state.drag = { type: 'moveVertex', fi: hit.fi, pi: hit.pi, vi: vHit,
+        olds: { x: po.p[vHit * 2], y: po.p[vHit * 2 + 1] } };
+      renderPropPanel();
+    } else {
+      // 中点插入
+      let mHit = -1, mD = 6 / state.view.s;
+      for (let i = 0; i < po.p.length; i += 2) {
+        const j = (i + 2) % po.p.length;
+        const dd = Math.hypot((po.p[i] + po.p[j]) / 2 - wx, (po.p[i + 1] + po.p[j + 1]) / 2 - wy);
+        if (dd < mD) { mD = dd; mHit = i / 2; }
+      }
+      if (mHit >= 0) {
+        const at = mHit * 2 + 2;
+        const geo = [insPatch(po.p, at, [snapVal(wx), snapVal(wy)])];
+        pushCmd('插入顶点', withDerive(geo, () => recalcBoundsPatch(hit.fi)));
+        state.sel = { type: 'poly', fi: hit.fi, pi: hit.pi, vertex: at / 2 };
+        renderPropPanel(); render();
+      } else {
+        state.sel = { type: 'poly', fi: hit.fi, pi: hit.pi, vertex: null };
+        state.drag = { type: 'movePoly', fi: hit.fi, pi: hit.pi, wx0: wx, wy0: wy,
+          olds: { p: po.p.slice(), bounds: state.data.floors[hit.fi].bounds.slice() } };
+        renderPropPanel();
+      }
+    }
+  }
+  render();
+});
+
+cv.addEventListener('pointermove', e => {
+  if (!state.data) return;
+  const pos = canvasPos(e);
+  const wxy = s2w(pos[0], pos[1]);
+  const wx = wxy[0], wy = wxy[1];
+  state.hoverWorld = [wx, wy];
+  $('stCursor').textContent = '坐标: ' + wx.toFixed(1) + ', ' + wy.toFixed(1);
+
+  const dr = state.drag;
+  if (!dr) {
+    if (state.tool === 'addEdge' || state.tool === 'drawPoly') render();
+    else {
+      // 悬停摘要（§6.2）：节流 120ms
+      const now = Date.now();
+      if (!state._hoverT || now - state._hoverT > 120) {
+        state._hoverT = now;
+        const hit = pickEntity(wx, wy);
+        state.hover = hit;
+        $('stHover').textContent = hit ? hoverSummary(hit) : '';
+      }
+    }
+    return;
+  }
+  if (dr.type === 'pan') {
+    state.view.x = dr.vx0 - (pos[0] - dr.sx0) / state.view.s;
+    state.view.y = dr.vy0 - (pos[1] - dr.sy0) / state.view.s;
+  } else if (dr.type === 'box') {
+    dr.sx1 = pos[0]; dr.sy1 = pos[1];
+  } else if (dr.type === 'moveNode' || dr.type === 'moveNodes') {
+    const items = dr.type === 'moveNode'
+      ? [{ ni: dr.ni, node: dr.olds.node, label: dr.olds.label, poi: dr.olds.poi }]
+      : dr.items;
+    items.forEach(it => {
+      const n = state.data.nodes[it.ni];
+      if (dr.type === 'moveNode') {
+        n[0] = snapVal(it.node[0] + (wx - dr.wx0));
+        n[1] = snapVal(it.node[1] + (wy - dr.wy0));
+      } else {
+        // 批量移动：整体位移量吸附，保持相对形状
+        const dx = snapVal(wx - dr.wx0), dy = snapVal(wy - dr.wy0);
+        n[0] = it.node[0] + dx; n[1] = it.node[1] + dy;
+      }
+      if (it.label) { it.label.ref.x = n[0]; it.label.ref.y = n[1]; }
+      if (it.poi) { it.poi.ref.x = n[0]; it.poi.ref.y = n[1]; }
+    });
+  } else if (dr.type === 'movePoi') {
+    const p = state.data.pois[dr.pi];
+    p.x = snapVal(dr.olds.x + (wx - dr.wx0));
+    p.y = snapVal(dr.olds.y + (wy - dr.wy0));
+  } else if (dr.type === 'moveLabel') {
+    const lb = state.data.floors[dr.fi].labels[dr.li];
+    lb.x = snapVal(dr.olds.x + (wx - dr.wx0));
+    lb.y = snapVal(dr.olds.y + (wy - dr.wy0));
+  } else if (dr.type === 'movePoly') {
+    const po = state.data.floors[dr.fi].polys[dr.pi];
+    const dx = wx - dr.wx0, dy = wy - dr.wy0; // 整体平移不吸附，保持形状
+    for (let i = 0; i < po.p.length; i += 2) {
+      po.p[i] = dr.olds.p[i] + dx;
+      po.p[i + 1] = dr.olds.p[i + 1] + dy;
+    }
+  } else if (dr.type === 'moveVertex') {
+    const po = state.data.floors[dr.fi].polys[dr.pi];
+    po.p[dr.vi * 2] = snapVal(wx);
+    po.p[dr.vi * 2 + 1] = snapVal(wy);
+  }
+  render();
+});
+
+cv.addEventListener('pointerup', () => {
+  const dr = state.drag;
+  state.drag = null;
+  if (!dr || !state.data) { render(); return; }
+
+  if (dr.type === 'box') {
+    const c0 = s2w(Math.min(dr.sx0, dr.sx1), Math.min(dr.sy0, dr.sy1));
+    const c1 = s2w(Math.max(dr.sx0, dr.sx1), Math.max(dr.sy0, dr.sy1));
+    const fi = curFloorIdx();
+    const picked = [];
+    state.data.nodes.forEach((n, ni) => {
+      if (n[2] === fi && n[0] >= c0[0] && n[0] <= c1[0] && n[1] >= c0[1] && n[1] <= c1[1]) picked.push(ni);
+    });
+    state.multi = picked.length > 1 ? picked : null;
+    state.sel = picked.length ? { type: 'node', ni: picked[picked.length - 1] } : null;
+    renderPropPanel(); render();
+    return;
+  }
+
+  if (dr.type === 'moveNode' || dr.type === 'moveNodes') {
+    const items = dr.type === 'moveNode'
+      ? [{ ni: dr.ni, node: dr.olds.node, label: dr.olds.label, poi: dr.olds.poi }]
+      : dr.items;
+    let moved = false;
+    const geo = [];
+    const niList = [];
+    items.forEach(it => {
+      const n = state.data.nodes[it.ni];
+      const nx = n[0], ny = n[1];
+      if (nx === it.node[0] && ny === it.node[1]) return;
+      moved = true;
+      niList.push(it.ni);
+      // 回滚到旧值，用 setPatch 捕获 old→new
+      n[0] = it.node[0]; n[1] = it.node[1];
+      if (it.label) { it.label.ref.x = it.label.x; it.label.ref.y = it.label.y; }
+      if (it.poi) { it.poi.ref.x = it.poi.x; it.poi.ref.y = it.poi.y; }
+      geo.push(...moveNodePatches(it.ni, nx, ny));
+    });
+    if (moved) {
+      pushCmd(dr.type === 'moveNode' ? '移动节点' : '批量移动节点',
+        withDerive(geo, () => recalcKind0Patches(niList)));
+    }
+  } else if (dr.type === 'movePoi') {
+    const p = state.data.pois[dr.pi];
+    if (p.x !== dr.olds.x || p.y !== dr.olds.y) {
+      const nx = p.x, ny = p.y;
+      p.x = dr.olds.x; p.y = dr.olds.y;
+      pushCmd('移动兴趣点', [setPatch(p, 'x', nx), setPatch(p, 'y', ny)]);
+    }
+  } else if (dr.type === 'moveLabel') {
+    const lb = state.data.floors[dr.fi].labels[dr.li];
+    if (lb.x !== dr.olds.x || lb.y !== dr.olds.y) {
+      const nx = lb.x, ny = lb.y;
+      lb.x = dr.olds.x; lb.y = dr.olds.y;
+      pushCmd('移动标签', [setPatch(lb, 'x', nx), setPatch(lb, 'y', ny)]);
+    }
+  } else if (dr.type === 'movePoly') {
+    const po = state.data.floors[dr.fi].polys[dr.pi];
+    if (po.p.some((v, i) => v !== dr.olds.p[i])) {
+      const newP = po.p.slice();
+      // 回滚后构造 old→new 补丁
+      for (let i = 0; i < po.p.length; i++) po.p[i] = dr.olds.p[i];
+      const geo = [mkSet(po, 'p', dr.olds.p.slice(), newP)];
+      pushCmd('移动多边形', withDerive(geo, () =>
+        [mkSet(state.data.floors[dr.fi], 'bounds', dr.olds.bounds.slice(),
+               boundsOfFloor(state.data.floors[dr.fi]))]));
+    }
+  } else if (dr.type === 'moveVertex') {
+    const po = state.data.floors[dr.fi].polys[dr.pi];
+    const cx = po.p[dr.vi * 2], cy = po.p[dr.vi * 2 + 1];
+    if (cx !== dr.olds.x || cy !== dr.olds.y) {
+      po.p[dr.vi * 2] = dr.olds.x; po.p[dr.vi * 2 + 1] = dr.olds.y;
+      const geo = [
+        setPatch(po.p, dr.vi * 2, cx),
+        setPatch(po.p, dr.vi * 2 + 1, cy)
+      ];
+      pushCmd('移动顶点', withDerive(geo, () => recalcBoundsPatch(dr.fi)));
+    }
+  }
+  renderPropPanel();
+  render();
+});
+
+// 双击闭合绘制中的多边形
+cv.addEventListener('dblclick', () => {
+  if (state.tool === 'drawPoly' && state.drawPts && state.drawPts.length >= 3) {
+    finishDrawPoly();
+  }
+});
+
+function finishDrawPoly() {
+  const pts = state.drawPts;
+  if (!pts || pts.length < 3) return;
+  const flat = [];
+  pts.forEach(p => flat.push(p[0], p[1]));
+  const type = $('polyTypeSel').value;
+  const po = { t: type, p: flat };
+  if (type === 'room') po.n = '';
+  const floor = curFloor();
+  const fi = curFloorIdx();
+  const geo = [insPatch(floor.polys, floor.polys.length, [po])];
+  pushCmd('绘制多边形', withDerive(geo, () => recalcBoundsPatch(fi)));
+  state.drawPts = null;
+  state.sel = { type: 'poly', fi, pi: floor.polys.length - 1, vertex: null };
+  renderPropPanel(); render();
+}
+
+// 滚轮缩放（锚定鼠标位置）
+cv.addEventListener('wheel', e => {
+  if (!state.data) return;
+  e.preventDefault();
+  const pos = canvasPos(e);
+  const before = s2w(pos[0], pos[1]);
+  const factor = Math.exp(-e.deltaY * 0.0012);
+  state.view.s = Math.max(0.01, Math.min(6, state.view.s * factor));
+  const after = s2w(pos[0], pos[1]);
+  state.view.x += before[0] - after[0];
+  state.view.y += before[1] - after[1];
+  render();
+}, { passive: false });
+
+// 拖放导入
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) readJsonFile(f);
+});
+
+// ============================== 属性面板 ==============================
+function esc(s) {
+  return String(s === undefined || s === null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+}
+function fieldRow(label, inputHtml) {
+  return '<div class="field"><span>' + label + '</span>' + inputHtml + '</div>';
+}
+function renderPropPanel() {
+  const d = state.data;
+  if (!d) { propPanel.innerHTML = '<div class="empty">未载入数据。</div>'; return; }
+  const sel = state.sel;
+  $('stSel').textContent = sel ? ('选中: ' + selTypeName(sel.type) + (sel.ni !== undefined ? ' #' + sel.ni : sel.ei !== undefined ? ' #' + sel.ei : sel.pi !== undefined ? ' #' + sel.pi : '')) : '选中: –';
+  if (!sel) {
+    if (state.multi && state.multi.length) {
+      propPanel.innerHTML = '<div class="hint">已框选 <b>' + state.multi.length + '</b> 个节点。可整体拖拽，或批量删除（当前版本仅支持移动 / 删除）。</div>' +
+        '<button class="danger" id="btnDelSel">删除选中 ' + state.multi.length + ' 个节点</button>';
+      $('btnDelSel').onclick = () => deleteNodes(state.multi.slice());
+      return;
+    }
+    // 未选中实体时显示 meta 编辑（§6.6）
+    let mh = '<div class="hint"><span class="tag">元数据</span> 数据集基本信息</div>';
+    mh += fieldRow('名称', '<input type="text" data-k="meta.name" value="' + esc(d.meta.name) + '">');
+    mh += fieldRow('数据来源', '<input type="text" data-k="meta.source" value="' + esc(d.meta.source) + '">');
+    mh += fieldRow('单位比例', '<input type="number" step="0.1" data-k="meta.unitPerMeter" value="' + d.meta.unitPerMeter + '" title="每米对应的地图单位数">');
+    mh += '<div class="hint">楼层顺序：' + esc(d.meta.floorOrder.join('、')) + '<br>主连通分量：' + esc(d.meta.mainComponent) + '</div>';
+    mh += '<div class="hint">单击选择实体，按住 Shift 键可多选节点，Shift + 拖拽空白区域可框选。</div>';
+    propPanel.innerHTML = mh;
+    propPanel.querySelectorAll('[data-k]').forEach(inp => {
+      inp.addEventListener('change', onPropChange);
+    });
+    return;
+  }
+  let html = '';
+  if (sel.type === 'node') {
+    const n = d.nodes[sel.ni];
+    if (!n) { propPanel.innerHTML = '<div class="empty">实体已不存在。</div>'; return; }
+    const lab = links.nodeLabel.get(sel.ni);
+    const poiIdx = links.nodePoi.get(sel.ni);
+    html = '<div class="hint"><span class="tag">节点 #' + sel.ni + '</span>' +
+      (lab ? ' <span class="tag">已关联标签</span>' : '') +
+      (poiIdx !== undefined ? ' <span class="tag">已关联兴趣点</span>' : '') + '</div>';
+    html += fieldRow('横坐标', '<input type="number" step="0.1" data-k="node.x" value="' + n[0] + '">');
+    html += fieldRow('纵坐标', '<input type="number" step="0.1" data-k="node.y" value="' + n[1] + '">');
+    html += fieldRow('楼层', '<select data-k="node.floor">' + d.floors.map((f, i) =>
+      '<option value="' + i + '"' + (i === n[2] ? ' selected' : '') + '>' + esc(f.id) + '</option>').join('') + '</select>');
+    html += fieldRow('类型编码', '<input type="text" data-k="node.code" value="' + esc(n[3]) + '" list="codeList" title="节点功能类型，如房间、楼梯、电梯">');
+    html += fieldRow('名称', '<input type="text" data-k="node.name" value="' + esc(n[4]) + '">');
+    html += fieldRow('所属楼栋', '<input type="text" data-k="node.building" value="' + esc(n[5]) + '">');
+    html += '<div style="margin:8px 0"><button id="btnAddLabelFor">为选中实体添加标签</button></div>';
+    html += '<div class="hint">改名将联动标签、兴趣点与同名多边形；移动将联动标签、兴趣点并自动重算步行类边的长度权重。</div>';
+  } else if (sel.type === 'edge') {
+    const ed = d.edges[sel.ei];
+    if (!ed) { propPanel.innerHTML = '<div class="empty">实体已不存在。</div>'; return; }
+    const a = d.nodes[ed[0]], b = d.nodes[ed[1]];
+    html = '<div class="hint"><span class="tag">边 #' + sel.ei + '</span></div>';
+    if (a && b) {
+      html += fieldRow('起点', '<input type="text" value="#' + ed[0] + ' (' + a[0].toFixed(0) + ',' + a[1].toFixed(0) + ') @' + esc(d.floors[a[2]] ? d.floors[a[2]].id : '?') + '" disabled>');
+      html += fieldRow('终点', '<input type="text" value="#' + ed[1] + ' (' + b[0].toFixed(0) + ',' + b[1].toFixed(0) + ') @' + esc(d.floors[b[2]] ? d.floors[b[2]].id : '?') + '" disabled>');
+    }
+    html += fieldRow('长度权重', '<input type="number" step="0.01" data-k="edge.w" value="' + ed[2] + '" title="通行代价，单位：米">');
+    html += fieldRow('边类型', '<select data-k="edge.kind">' + Object.keys(EDGE_KIND_NAMES).map(k =>
+      '<option value="' + k + '"' + (Number(k) === ed[3] ? ' selected' : '') + '>' + kindName(Number(k)) + '</option>').join('') + '</select>');
+  } else if (sel.type === 'poi') {
+    const p = d.pois[sel.pi];
+    if (!p) { propPanel.innerHTML = '<div class="empty">实体已不存在。</div>'; return; }
+    html = '<div class="hint"><span class="tag">兴趣点 #' + sel.pi + '</span> 关联节点 #' + p.i + '</div>';
+    html += fieldRow('原始编号', '<input type="text" data-k="poi.id" value="' + esc(p.id) + '" title="上游数据中的标识，可留空">');
+    html += fieldRow('名称', '<input type="text" data-k="poi.n" value="' + esc(p.n) + '">');
+    html += fieldRow('所属楼层', '<select data-k="poi.f">' + d.floors.map(f =>
+      '<option value="' + esc(f.id) + '"' + (f.id === p.f ? ' selected' : '') + '>' + esc(f.id) + '</option>').join('') + '</select>');
+    html += fieldRow('横坐标', '<input type="number" step="0.1" data-k="poi.x" value="' + p.x + '">');
+    html += fieldRow('纵坐标', '<input type="number" step="0.1" data-k="poi.y" value="' + p.y + '">');
+    html += fieldRow('类型', '<input type="text" data-k="poi.t" value="' + esc(p.t) + '" list="poiTypeList">');
+    html += fieldRow('所属楼栋', '<input type="text" data-k="poi.b" value="' + esc(p.b) + '">');
+    html += fieldRow('关联节点', '<input type="number" data-k="poi.i" value="' + p.i + '" title="节点下标（nodes 数组索引）">');
+  } else if (sel.type === 'poly') {
+    const fl = d.floors[sel.fi];
+    const po = fl.polys[sel.pi];
+    if (!po) { propPanel.innerHTML = '<div class="empty">实体已不存在。</div>'; return; }
+    html = '<div class="hint"><span class="tag">多边形 #' + sel.pi + '</span> @' + esc(fl.id) + ' · ' + (po.p.length / 2) + ' 个顶点</div>';
+    html += fieldRow('区域类型', '<select data-k="poly.t">' + POLY_TYPES.map(t =>
+      '<option value="' + t + '"' + (t === po.t ? ' selected' : '') + '>' + polyTypeName(t) + '</option>').join('') + '</select>');
+    html += fieldRow('名称', '<input type="text" data-k="poly.n" value="' + esc(po.n !== undefined ? po.n : '') + '">');
+    html += '<div style="margin:8px 0"><button id="btnAddLabelFor">为选中实体添加标签</button></div>';
+    html += '<div class="hint">拖拽顶点可移动；点击边的中点可插入顶点；选中顶点后按 Delete 键删除（至少保留 3 个顶点）。</div>';
+  } else if (sel.type === 'label') {
+    const fl = d.floors[sel.fi];
+    const lb = fl.labels[sel.li];
+    if (!lb) { propPanel.innerHTML = '<div class="empty">实体已不存在。</div>'; return; }
+    html = '<div class="hint"><span class="tag">标签 #' + sel.li + '</span> @' + esc(fl.id) + '</div>';
+    html += fieldRow('名称', '<input type="text" data-k="label.n" value="' + esc(lb.n) + '">');
+    html += fieldRow('横坐标', '<input type="number" step="0.1" data-k="label.x" value="' + lb.x + '">');
+    html += fieldRow('纵坐标', '<input type="number" step="0.1" data-k="label.y" value="' + lb.y + '">');
+    html += fieldRow('标签类别', '<select data-k="label.c">' + LABEL_CODES.map(c =>
+      '<option value="' + c + '"' + (c === lb.c ? ' selected' : '') + '>' + labelCodeName(c) + '</option>').join('') + '</select>');
+    const ni = links.labelNode.get(sel.fi * 1e7 + sel.li);
+    html += '<div class="hint">' + (ni !== undefined
+      ? '已关联节点 #' + ni + '，改名将联动。'
+      : '未关联节点（坐标不重合），校验时会提示失联。') + '</div>';
+  } else if (sel.type === 'floor') {
+    const fl = d.floors[sel.fi];
+    if (!fl) { propPanel.innerHTML = '<div class="empty">实体已不存在。</div>'; return; }
+    html = '<div class="hint"><span class="tag">楼层 ' + esc(fl.id) + '</span></div>';
+    html += fieldRow('楼层编号', '<input type="text" data-k="floor.id" value="' + esc(fl.id) + '" title="如 L1、B1、GF1，修改后相关引用会同步更新">');
+    html += fieldRow('楼层名称', '<input type="text" data-k="floor.name" value="' + esc(fl.name) + '">');
+    html += fieldRow('备注', '<input type="text" data-k="floor.note" value="' + esc(fl.note || '') + '">');
+    html += fieldRow('垂直层级', '<input type="number" step="0.5" data-k="floor.level" value="' + fl.level + '" title="用于跨层代价换算，如地面 0、地下 -1">');
+    html += fieldRow('楼层性质', '<select data-k="floor.kind">' +
+      '<option value="indoor"' + (fl.kind === 'indoor' ? ' selected' : '') + '>室内</option>' +
+      '<option value="outdoor"' + (fl.kind === 'outdoor' ? ' selected' : '') + '>室外</option></select>');
+    html += '<div class="hint">边界范围由多边形自动重算。删除楼层请在底部楼层栏操作。</div>';
+  }
+  html += '<datalist id="codeList">' + Array.from(new Set(d.nodes.map(n => n[3]).filter(Boolean)))
+    .map(c => '<option value="' + esc(c) + '">').join('') + '</datalist>';
+  html += '<datalist id="poiTypeList">' + POI_TYPES.map(t => '<option value="' + esc(t) + '">').join('') + '</datalist>';
+  propPanel.innerHTML = html;
+  propPanel.querySelectorAll('[data-k]').forEach(inp => {
+    inp.addEventListener('change', onPropChange);
+  });
+  // 「为选中实体添加标签」（§6.4）
+  const btnLab = $('btnAddLabelFor');
+  if (btnLab) btnLab.onclick = () => {
+    const s = state.sel;
+    if (!s) return;
+    let lx, ly, ln, lfi;
+    if (s.type === 'node') {
+      const n = d.nodes[s.ni];
+      lx = n[0]; ly = n[1]; ln = n[4]; lfi = n[2];
+    } else if (s.type === 'poly') {
+      const flp = d.floors[s.fi], po2 = flp.polys[s.pi];
+      if (!po2) return;
+      let sx = 0, sy = 0;
+      for (let i = 0; i < po2.p.length; i += 2) { sx += po2.p[i]; sy += po2.p[i + 1]; }
+      lx = sx / (po2.p.length / 2); ly = sy / (po2.p.length / 2);
+      ln = po2.n || ''; lfi = s.fi;
+    } else return;
+    const lb = { n: ln, x: lx, y: ly, c: 'workstationaction' };
+    const target = d.floors[lfi];
+    pushCmd('添加标签', [insPatch(target.labels, target.labels.length, [lb])]);
+    rebuildLinks();
+    state.sel = { type: 'label', fi: lfi, li: target.labels.length - 1 };
+    renderPropPanel(); render();
+  };
+}
+
+function onPropChange(e) {
+  const d = state.data, sel = state.sel;
+  const k = e.target.dataset.k;
+  if (!d) return;
+  // meta 编辑无需选中实体
+  if (k && k.indexOf('meta.') === 0) {
+    const v0 = e.target.value;
+    const mkey = k.slice(5);
+    let mg = [];
+    if (mkey === 'name' || mkey === 'source') mg = [setPatch(d.meta, mkey, v0)];
+    else if (mkey === 'unitPerMeter') mg = [setPatch(d.meta, mkey, Number(v0))];
+    if (mg.length) pushCmd('修改元数据', mg);
+    return;
+  }
+  if (!sel || !selExists(sel)) return;
+  const v = e.target.value;
+  let geo = [];
+  let derive = null;
+
+  if (sel.type === 'node') {
+    const n = d.nodes[sel.ni];
+    if (k === 'node.x') { geo = moveNodePatches(sel.ni, Number(v), n[1]); derive = () => recalcKind0Patches([sel.ni]); }
+    else if (k === 'node.y') { geo = moveNodePatches(sel.ni, n[0], Number(v)); derive = () => recalcKind0Patches([sel.ni]); }
+    else if (k === 'node.floor') {
+      // Q1 联动：节点换层时 POI.f 跟随，标签随迁到新层
+      const newFi = Number(v), oldFi = n[2];
+      geo.push(setPatch(n, 2, newFi));
+      const poiIdx = links.nodePoi.get(sel.ni);
+      if (poiIdx !== undefined && d.floors[newFi]) {
+        geo.push(setPatch(d.pois[poiIdx], 'f', d.floors[newFi].id));
+      }
+      const lab = links.nodeLabel.get(sel.ni);
+      if (lab && lab.fi !== newFi && d.floors[newFi]) {
+        const lb = d.floors[lab.fi].labels[lab.li];
+        geo.push(delPatch(d.floors[lab.fi].labels, lab.li, [lb]));
+        geo.push(insPatch(d.floors[newFi].labels, d.floors[newFi].labels.length, [lb]));
+      }
+    }
+    else if (k === 'node.code') geo = [setPatch(n, 3, v)];
+    else if (k === 'node.name') geo = renameNodePatches(sel.ni, v);
+    else if (k === 'node.building') geo = [setPatch(n, 5, v)];
+  } else if (sel.type === 'edge') {
+    const ed = d.edges[sel.ei];
+    if (k === 'edge.w') geo = [setPatch(ed, 2, Number(v))];
+    else if (k === 'edge.kind') geo = [setPatch(ed, 3, Number(v))];
+  } else if (sel.type === 'poi') {
+    const p = d.pois[sel.pi];
+    const map = { 'poi.id': 'id', 'poi.n': 'n', 'poi.f': 'f', 'poi.x': 'x', 'poi.y': 'y', 'poi.t': 't', 'poi.b': 'b', 'poi.i': 'i' };
+    const key = map[k];
+    if (key) {
+      const nv = (key === 'x' || key === 'y' || key === 'i') ? Number(v) : v;
+      if (key === 'n' && p.i >= 0 && p.i < d.nodes.length) {
+        // name 映射联动：本 POI + 节点/标签/同名多边形（覆盖多 POI 共节点场景）
+        geo = [setPatch(p, 'n', v)].concat(renameNodePatches(p.i, v));
+      } else {
+        geo = [setPatch(p, key, nv)];
+      }
+    }
+  } else if (sel.type === 'poly') {
+    const po = d.floors[sel.fi].polys[sel.pi];
+    if (!po) return;
+    if (k === 'poly.t') geo = [setPatch(po, 't', v)];
+    else if (k === 'poly.n') geo = [setPatch(po, 'n', v)];
+  } else if (sel.type === 'label') {
+    const lb = d.floors[sel.fi].labels[sel.li];
+    if (!lb) return;
+    const map = { 'label.n': 'n', 'label.x': 'x', 'label.y': 'y', 'label.c': 'c' };
+    const key = map[k];
+    if (key) {
+      const nv = (key === 'x' || key === 'y') ? Number(v) : v;
+      geo = [setPatch(lb, key, nv)];
+      if (key === 'n') {
+        const ni = links.labelNode.get(sel.fi * 1e7 + sel.li);
+        if (ni !== undefined) geo = renameNodePatches(ni, v);
+      }
+    }
+  } else if (sel.type === 'floor') {
+    const fl = d.floors[sel.fi];
+    if (!fl) return;
+    const map = { 'floor.id': 'id', 'floor.name': 'name', 'floor.note': 'note', 'floor.level': 'level', 'floor.kind': 'kind' };
+    const key = map[k];
+    if (key) {
+      const nv = key === 'level' ? Number(v) : v;
+      if (key === 'id') {
+        const oldId = fl.id;
+        geo.push(setPatch(fl, 'id', nv));
+        const fo = d.meta.floorOrder;
+        const idx2 = fo.indexOf(oldId);
+        if (idx2 >= 0) {
+          const nf = fo.slice(); nf[idx2] = nv;
+          geo.push(setPatch(d.meta, 'floorOrder', nf));
+        }
+        d.pois.forEach(p => { if (p.f === oldId) geo.push(setPatch(p, 'f', nv)); });
+        if (state.floorId === oldId) state.floorId = nv;
+      } else {
+        geo.push(setPatch(fl, key, nv));
+      }
+    }
+  }
+  if (geo.length) {
+    pushCmd('修改属性', withDerive(geo, derive));
+    rebuildLinks();
+  }
+  render();
+}
+
+// ============================== 删除（级联规则 §6.5） ==============================
+function deleteNodes(idxs) {
+  const d = state.data;
+  const set = new Set(idxs);
+  let edgeCnt = 0, poiCnt = 0, labCnt = 0;
+  d.edges.forEach(e => { if (set.has(e[0]) || set.has(e[1])) edgeCnt++; });
+  const poiIdxs = [];
+  d.pois.forEach((p, i) => { if (set.has(p.i)) { poiCnt++; poiIdxs.push(i); } });
+  const labs = [];
+  idxs.forEach(ni => {
+    const lab = links.nodeLabel.get(ni);
+    if (lab) { labCnt++; labs.push(lab); }
+  });
+  const edgeChk = edgeCnt
+    ? '<p><label class="chk"><input type="checkbox" id="delEdgeChk" checked>同时删除关联边（' + edgeCnt + ' 条）</label></p>'
+    : '';
+  showModal('删除节点',
+    '<p>将删除 <b>' + idxs.length + '</b> 个节点。</p>' +
+    edgeChk +
+    '<p>级联影响：<b>' + edgeCnt + '</b> 条边、<b>' + poiCnt + '</b> 个兴趣点、<b>' + labCnt + '</b> 个标签（关联数据将一并删除）。</p>' +
+    '<p class="hint">未勾选时，仍被边引用的节点会被阻止删除。</p>',
+    [
+      { label: '取消' },
+      { label: '删除', cls: 'danger', fn: () => {
+        const withEdges = !edgeCnt || ($('delEdgeChk') && $('delEdgeChk').checked);
+        if (!withEdges) {
+          // §6.5：阻止删除仍被边引用的节点
+          const blocked = idxs.length;
+          showModal('已阻止删除',
+            '<p><b>' + blocked + '</b> 个节点仍被 <b>' + edgeCnt + '</b> 条边引用，未勾选「同时删除关联边」。</p>' +
+            '<p class="hint">请勾选后重试，或先删除相关边。</p>',
+            [{ label: '知道了' }]);
+          return;
+        }
+        doDeleteNodes(idxs, poiIdxs, labs);
+      } }
+    ]);
+}
+function doDeleteNodes(idxs, poiIdxs, labs) {
+  const d = state.data;
+  const set = new Set(idxs);
+  const patches = [];
+  poiIdxs.slice().sort((a, b) => b - a).forEach(i => {
+    patches.push(delPatch(d.pois, i, [d.pois[i]]));
+  });
+  labs.slice().sort((a, b) => b.fi - a.fi || b.li - a.li).forEach(l => {
+    patches.push(delPatch(d.floors[l.fi].labels, l.li, [d.floors[l.fi].labels[l.li]]));
+  });
+  const edgeIdxs = [];
+  d.edges.forEach((e, i) => { if (set.has(e[0]) || set.has(e[1])) edgeIdxs.push(i); });
+  edgeIdxs.sort((a, b) => b - a).forEach(i => {
+    patches.push(delPatch(d.edges, i, [d.edges[i]]));
+  });
+  const sorted = idxs.slice().sort((a, b) => b - a);
+  sorted.forEach(ni => {
+    patches.push(delPatch(d.nodes, ni, [d.nodes[ni]]));
+  });
+  // 引用下标修正（对未删除的边/POI）
+  d.edges.forEach((e, ei) => {
+    if (set.has(e[0]) || set.has(e[1])) return;
+    let a = e[0], b = e[1], ch = false;
+    sorted.forEach(ni => {
+      if (a > ni) { a--; ch = true; }
+      if (b > ni) { b--; ch = true; }
+    });
+    if (ch) patches.push(setPatch(e, 0, a), setPatch(e, 1, b));
+  });
+  d.pois.forEach((p, pi) => {
+    if (set.has(p.i)) return;
+    let ii = p.i, ch = false;
+    sorted.forEach(ni => { if (ii > ni) { ii--; ch = true; } });
+    if (ch) patches.push(setPatch(p, 'i', ii));
+  });
+  pushCmd('删除 ' + idxs.length + ' 个节点', patches);
+  state.sel = null; state.multi = null;
+  rebuildLinks(); renderPropPanel(); render();
+}
+function deleteSelection() {
+  const sel = state.sel;
+  if (!sel) {
+    if (state.multi && state.multi.length) deleteNodes(state.multi.slice());
+    return;
+  }
+  const d = state.data;
+  if (sel.type === 'node') { deleteNodes([sel.ni]); return; }
+  if (sel.type === 'edge') {
+    showModal('删除边', '<p>删除边 #' + sel.ei + '？</p>', [
+      { label: '取消' },
+      { label: '删除', cls: 'danger', fn: () => {
+        pushCmd('删除边', [delPatch(d.edges, sel.ei, [d.edges[sel.ei]])]);
+        state.sel = null; renderPropPanel(); render();
+      } }
+    ]);
+    return;
+  }
+  if (sel.type === 'poi') {
+    showModal('删除兴趣点', '<p>删除兴趣点 #' + sel.pi + '（' + esc(d.pois[sel.pi].n) + '）？</p>', [
+      { label: '取消' },
+      { label: '删除', cls: 'danger', fn: () => {
+        pushCmd('删除兴趣点', [delPatch(d.pois, sel.pi, [d.pois[sel.pi]])]);
+        state.sel = null; rebuildLinks(); renderPropPanel(); render();
+      } }
+    ]);
+    return;
+  }
+  if (sel.type === 'label') {
+    const lb = d.floors[sel.fi].labels[sel.li];
+    showModal('删除标签', '<p>删除标签「' + esc(lb.n) + '」？</p>', [
+      { label: '取消' },
+      { label: '删除', cls: 'danger', fn: () => {
+        pushCmd('删除标签', [delPatch(d.floors[sel.fi].labels, sel.li, [lb])]);
+        state.sel = null; rebuildLinks(); renderPropPanel(); render();
+      } }
+    ]);
+    return;
+  }
+  if (sel.type === 'poly') {
+    const po = d.floors[sel.fi].polys[sel.pi];
+    showModal('删除多边形', '<p>删除多边形（' + polyTypeName(po.t) + (po.n ? ' · ' + esc(po.n) : '') + '，' + (po.p.length / 2) + ' 个顶点）？</p>', [
+      { label: '取消' },
+      { label: '删除', cls: 'danger', fn: () => {
+        const fi = sel.fi;
+        const geo = [delPatch(d.floors[fi].polys, sel.pi, [po])];
+        pushCmd('删除多边形', withDerive(geo, () => recalcBoundsPatch(fi)));
+        state.sel = null; renderPropPanel(); render();
+      } }
+    ]);
+    return;
+  }
+  if (sel.type === 'floor') { deleteFloor(sel.fi); return; }
+}
+
+function deleteFloor(fi) {
+  const d = state.data;
+  const fl = d.floors[fi];
+  if (d.floors.length <= 1) { showModal('无法删除', '<p>不能删除最后一个楼层。</p>', [{ label: '知道了' }]); return; }
+  let nodeCnt = 0;
+  d.nodes.forEach(n => { if (n[2] === fi) nodeCnt++; });
+  showModal('删除楼层',
+    '<p>删除楼层 <b>' + esc(fl.id) + '</b>（垂直层级 ' + fl.level + '）？</p>' +
+    '<p>该层有 <b>' + nodeCnt + '</b> 个节点、' + fl.polys.length + ' 个多边形、' + fl.labels.length + ' 个标签。</p>' +
+    '<p class="hint">必须连带删除层内全部数据，并修正其余节点的楼层索引引用。此操作可以撤销。</p>',
+    [
+      { label: '取消' },
+      { label: '级联删除', cls: 'danger', fn: () => {
+        const patches = [];
+        const idxs = [];
+        d.nodes.forEach((n, i) => { if (n[2] === fi) idxs.push(i); });
+        const set = new Set(idxs);
+        const poiIdxs = [];
+        d.pois.forEach((p, i) => { if (set.has(p.i)) poiIdxs.push(i); });
+        poiIdxs.slice().sort((a, b) => b - a).forEach(i => patches.push(delPatch(d.pois, i, [d.pois[i]])));
+        for (let li = fl.labels.length - 1; li >= 0; li--) {
+          patches.push(delPatch(fl.labels, li, [fl.labels[li]]));
+        }
+        const edgeIdxs = [];
+        d.edges.forEach((e, i) => { if (set.has(e[0]) || set.has(e[1])) edgeIdxs.push(i); });
+        edgeIdxs.sort((a, b) => b - a).forEach(i => patches.push(delPatch(d.edges, i, [d.edges[i]])));
+        const sorted = idxs.slice().sort((a, b) => b - a);
+        sorted.forEach(ni => patches.push(delPatch(d.nodes, ni, [d.nodes[ni]])));
+        // 引用修正（未删除实体）
+        d.edges.forEach(e => {
+          if (set.has(e[0]) || set.has(e[1])) return;
+          let a = e[0], b = e[1], ch = false;
+          sorted.forEach(ni => { if (a > ni) { a--; ch = true; } if (b > ni) { b--; ch = true; } });
+          if (ch) patches.push(setPatch(e, 0, a), setPatch(e, 1, b));
+        });
+        d.pois.forEach(p => {
+          if (set.has(p.i)) return;
+          let ii = p.i, ch = false;
+          sorted.forEach(ni => { if (ii > ni) { ii--; ch = true; } });
+          if (ch) patches.push(setPatch(p, 'i', ii));
+        });
+        d.nodes.forEach(n => {
+          if (n[2] > fi) patches.push(setPatch(n, 2, n[2] - 1));
+        });
+        patches.push(delPatch(d.floors, fi, [fl]));
+        patches.push(setPatch(d.meta, 'floorOrder', d.meta.floorOrder.filter(id => id !== fl.id)));
+        pushCmd('删除楼层 ' + fl.id, patches);
+        const remain = d.floors[Math.min(fi, d.floors.length - 1)];
+        state.floorId = remain ? remain.id : null;
+        state.sel = null;
+        rebuildLinks(); renderRail(); renderPropPanel(); render();
+      } }
+    ]);
+}
+
+// ============================== 校验器 ==============================
+function validate() {
+  const d = state.data;
+  const errors = [], warns = [];
+  const floorIds = new Set(), foSet = new Set();
+  d.floors.forEach(f => {
+    if (floorIds.has(f.id)) errors.push('楼层编号重复：' + f.id);
+    floorIds.add(f.id);
+  });
+  d.meta.floorOrder.forEach(id => {
+    if (foSet.has(id)) errors.push('楼层顺序中重复出现：' + id);
+    foSet.add(id);
+    if (!floorIds.has(id)) errors.push('楼层顺序引用了不存在的楼层：' + id);
+  });
+  d.floors.forEach(f => {
+    if (!foSet.has(f.id)) errors.push('楼层顺序缺少楼层：' + f.id);
+  });
+  d.nodes.forEach((n, i) => {
+    if (n[2] < 0 || n[2] >= d.floors.length) errors.push('nodes[' + i + '] 楼层索引越界：' + n[2]);
+  });
+  const pairCnt = new Map();
+  d.edges.forEach((e, i) => {
+    const a = e[0], b = e[1], w = e[2], k = e[3];
+    if (a < 0 || a >= d.nodes.length) errors.push('edges[' + i + '] 起点越界：' + a);
+    if (b < 0 || b >= d.nodes.length) errors.push('edges[' + i + '] 终点越界：' + b);
+    if (a === b) errors.push('edges[' + i + '] 自环（起终点相同）：' + a);
+    if (!(w > 0)) errors.push('edges[' + i + '] 长度权重非法：' + w);
+    if (k !== 0 && k !== 1 && k !== 2 && k !== 3) errors.push('edges[' + i + '] 边类型非法：' + k);
+    if (a >= 0 && a < d.nodes.length && b >= 0 && b < d.nodes.length && a !== b) {
+      const key = Math.min(a, b) + ',' + Math.max(a, b);
+      pairCnt.set(key, (pairCnt.get(key) || 0) + 1);
+      const na = d.nodes[a], nb = d.nodes[b];
+      if (na[2] !== nb[2] && k === 0) warns.push('edges[' + i + '] 跨层步行边（疑似漏标为楼梯 / 电梯）：' + (na[4] || a) + ' → ' + (nb[4] || b));
+      // 零长边仅对同层边告警：跨层楼梯/电梯节点同坐标是正常形态
+      if (na[2] === nb[2] && na[0] === nb[0] && na[1] === nb[1]) warns.push('edges[' + i + '] 零长边（两端坐标重合）：' + (na[4] || a) + ' = ' + (nb[4] || b));
+    }
+  });
+  pairCnt.forEach((c, key) => {
+    if (c > 1) warns.push('重复边 ×' + c + '：节点对 ' + key);
+  });
+  d.pois.forEach((p, i) => {
+    if (p.i < 0 || p.i >= d.nodes.length) { errors.push('pois[' + i + '] 关联节点索引越界：' + p.i); return; }
+    const n = d.nodes[p.i];
+    const fid = d.floors[n[2]] ? d.floors[n[2]].id : '?';
+    if (p.f !== fid) warns.push('pois[' + i + ']（' + p.n + '）所在楼层 ' + p.f + ' 与关联节点的楼层 ' + fid + ' 不一致');
+  });
+  // 连通分量
+  const N = d.nodes.length;
+  const adj = Array.from({ length: N }, () => []);
+  d.edges.forEach(e => {
+    const a = e[0], b = e[1];
+    if (a >= 0 && a < N && b >= 0 && b < N && a !== b) { adj[a].push(b); adj[b].push(a); }
+  });
+  const comp = new Int32Array(N).fill(-1);
+  let compId = 0;
+  for (let i = 0; i < N; i++) {
+    if (comp[i] !== -1) continue;
+    const q = [i]; comp[i] = compId;
+    while (q.length) {
+      const u = q.pop();
+      adj[u].forEach(v => { if (comp[v] === -1) { comp[v] = compId; q.push(v); } });
+    }
+    compId++;
+  }
+  const compSize = new Array(compId).fill(0);
+  for (let i = 0; i < N; i++) compSize[comp[i]]++;
+  let mainComp = 0;
+  compSize.forEach((s, c) => { if (s > compSize[mainComp]) mainComp = c; });
+  d.nodes.forEach((n, i) => {
+    const fl = d.floors[n[2]];
+    if (adj[i].length === 0 && fl && fl.kind !== 'outdoor') {
+      warns.push('孤立节点 #' + i + '（' + (n[4] || n[3] || '无名') + '）@' + fl.id);
+    }
+  });
+  d.pois.forEach((p, i) => {
+    if (p.i >= 0 && p.i < N && comp[p.i] !== mainComp) {
+      warns.push('pois[' + i + ']（' + p.n + '）不在主连通分量');
+    }
+  });
+  // 失联影子实体（Q1 兜底）
+  d.floors.forEach((fl, fi) => {
+    (fl.labels || []).forEach((lb, li) => {
+      const ni = links.labelNode.get(fi * 1e7 + li);
+      if (ni === undefined) {
+        warns.push('标签失联：「' + lb.n + '」@' + fl.id + ' 无坐标重合节点');
+      } else {
+        const n = d.nodes[ni];
+        if (n[4] !== lb.n) warns.push('标签名不一致：「' + lb.n + '」vs 节点「' + n[4] + '」@' + fl.id);
+      }
+    });
+    (fl.polys || []).forEach(po => {
+      if (po.t === 'room' && po.n) {
+        const hasNode = d.nodes.some(n => n[2] === fi && n[4] === po.n);
+        if (!hasNode) warns.push('房间多边形「' + po.n + '」@' + fl.id + ' 无同名节点');
+      }
+    });
+  });
+  // POI↔节点坐标漂移（Q1 兜底，容差 1 单位）
+  d.pois.forEach((p, i) => {
+    if (p.i < 0 || p.i >= d.nodes.length) return;
+    const n = d.nodes[p.i];
+    if (Math.hypot(p.x - n[0], p.y - n[1]) > 1) {
+      warns.push('pois[' + i + ']（' + p.n + '）坐标与节点 #' + p.i + ' 漂移 ' +
+        Math.hypot(p.x - n[0], p.y - n[1]).toFixed(1) + ' 单位');
+    }
+  });
+  // 未知枚举值提示（§6.3 允许扩展，但校验器提示）
+  const knownCodes = new Set(Object.keys(NODE_COLORS).concat(['', 'road']));
+  d.nodes.forEach((n, i) => {
+    if (n[3] && !knownCodes.has(n[3])) warns.push('nodes[' + i + '] 未知类型编码：' + n[3]);
+  });
+  d.floors.forEach((fl, fi) => {
+    (fl.polys || []).forEach((po, pi) => {
+      if (POLY_TYPES.indexOf(po.t) < 0) warns.push('多边形 [' + fi + ',' + pi + '] 未知区域类型：' + po.t);
+    });
+    (fl.labels || []).forEach((lb, li) => {
+      if (LABEL_CODES.indexOf(lb.c) < 0) warns.push('标签 [' + fi + ',' + li + '] 未知标签类别：' + lb.c);
+    });
+  });
+  return { errors, warns, mainCompSize: compSize[mainComp], mainComp };
+}
+
+function renderValPanel(result) {
+  if (!result) { valPanel.innerHTML = '<div class="empty">尚未校验。点击工具栏「校验」生成报告。</div>'; return; }
+  const errors = result.errors, warns = result.warns;
+  if (!errors.length && !warns.length) {
+    valPanel.innerHTML = '<div class="empty">✓ 未发现问题（主连通分量 ' + result.mainCompSize + ' 节点）。</div>';
+    return;
+  }
+  let html = '<div class="hint">错误 <b style="color:var(--err)">' + errors.length + '</b> · 警告 <b style="color:var(--warn)">' + warns.length + '</b> · 主连通分量 ' + result.mainCompSize + ' 节点</div>';
+  html += errors.map((m, i) => '<div class="val-item err" data-v="e' + i + '"><span class="lv">错误</span> ' + esc(m) + '</div>').join('');
+  html += warns.map((m, i) => '<div class="val-item warn" data-v="w' + i + '"><span class="lv">警告</span> ' + esc(m) + '</div>').join('');
+  valPanel.innerHTML = html;
+  valPanel.querySelectorAll('.val-item').forEach(el => {
+    el.onclick = () => locateIssue(el.dataset.v.charAt(0) === 'e' ? errors : warns, Number(el.dataset.v.slice(1)));
+  });
+}
+function locateIssue(list, idx) {
+  const msg = list[idx];
+  const d = state.data;
+  let m;
+  if ((m = msg.match(/nodes\[(\d+)\]/))) state.sel = { type: 'node', ni: +m[1] };
+  else if ((m = msg.match(/edges\[(\d+)\]/))) state.sel = { type: 'edge', ei: +m[1] };
+  else if ((m = msg.match(/pois\[(\d+)\]/))) state.sel = { type: 'poi', pi: +m[1] };
+  else if ((m = msg.match(/节点 #(\d+)/))) state.sel = { type: 'node', ni: +m[1] };
+  else if ((m = msg.match(/多边形 \[(\d+),(\d+)\]/))) {
+    const fii = +m[1];
+    state.sel = { type: 'poly', fi: fii, pi: +m[2] };
+    if (d.floors[fii]) state.floorId = d.floors[fii].id;
+    renderRail(); renderPropPanel(); render();
+    return;
+  } else if ((m = msg.match(/标签 \[(\d+),(\d+)\]/))) {
+    const fii = +m[1];
+    state.sel = { type: 'label', fi: fii, li: +m[2] };
+    if (d.floors[fii]) state.floorId = d.floors[fii].id;
+    renderRail(); renderPropPanel(); render();
+    return;
+  } else if ((m = msg.match(/「(.+?)」@(B?\w+)/))) {
+    // 「name」@floorId —— 标签/多边形/楼层相关告警
+    const name = m[1], fid = m[2];
+    const fii = d.floors.findIndex(f => f.id === fid);
+    if (fii >= 0) {
+      state.floorId = fid;
+      const li = (d.floors[fii].labels || []).findIndex(l => l.n === name);
+      if (li >= 0) {
+        state.sel = { type: 'label', fi: fii, li };
+        const lb = d.floors[fii].labels[li];
+        state.view.x = lb.x; state.view.y = lb.y;
+      } else {
+        const pi = (d.floors[fii].polys || []).findIndex(p => p.n === name);
+        if (pi >= 0) state.sel = { type: 'poly', fi: fii, pi };
+      }
+      renderRail(); renderPropPanel(); render();
+      return;
+    }
+  }
+  if (state.sel && state.sel.type === 'node') {
+    const n = state.data.nodes[state.sel.ni];
+    if (n) {
+      state.floorId = state.data.floors[n[2]] ? state.data.floors[n[2]].id : state.floorId;
+      state.view.x = n[0]; state.view.y = n[1];
+    }
+  } else if (state.sel && state.sel.type === 'poi') {
+    const p = state.data.pois[state.sel.pi];
+    if (p) { state.floorId = p.f; state.view.x = p.x; state.view.y = p.y; }
+  } else if (state.sel && state.sel.type === 'edge') {
+    const ed = state.data.edges[state.sel.ei];
+    const n = ed && state.data.nodes[ed[0]];
+    if (n) {
+      state.floorId = state.data.floors[n[2]] ? state.data.floors[n[2]].id : state.floorId;
+      state.view.x = n[0]; state.view.y = n[1];
+    }
+  }
+  renderRail(); renderPropPanel(); render();
+}
+
+// ============================== 搜索 ==============================
+const searchList = $('searchList');
+$('searchBox').addEventListener('input', () => {
+  const q = $('searchBox').value.trim().toLowerCase();
+  if (!q || !state.data) { searchList.style.display = 'none'; return; }
+  const d = state.data, items = [];
+  d.pois.forEach((p, pi) => {
+    if (items.length >= 30) return;
+    if (p.n && p.n.toLowerCase().indexOf(q) >= 0) items.push({ kind: '兴趣点', name: p.n, meta: p.t + ' · ' + p.f, pi });
+  });
+  d.nodes.forEach((n, ni) => {
+    if (items.length >= 30) return;
+    if (n[4] && n[4].toLowerCase().indexOf(q) >= 0) items.push({ kind: '节点', name: n[4], meta: (n[3] ? codeName(n[3]) : '–') + ' · ' + (d.floors[n[2]] ? d.floors[n[2]].id : '?'), ni });
+  });
+  d.floors.forEach((fl, fi) => {
+    (fl.labels || []).forEach((lb, li) => {
+      if (items.length >= 30) return;
+      if (lb.n && lb.n.toLowerCase().indexOf(q) >= 0) items.push({ kind: '标签', name: lb.n, meta: labelCodeName(lb.c) + ' · ' + fl.id, fi, li });
+    });
+  });
+  if (!items.length) {
+    searchList.innerHTML = '<div class="item"><span class="meta2">无匹配结果</span></div>';
+    searchList.style.display = 'block';
+    return;
+  }
+  searchList.innerHTML = items.map((it, i) =>
+    '<div class="item" data-i="' + i + '"><span class="nm">' + esc(it.name) + '</span><span class="meta2">' + it.kind + ' · ' + esc(it.meta) + '</span></div>'
+  ).join('');
+  searchList.style.display = 'block';
+  searchList.querySelectorAll('.item').forEach(el => {
+    el.onclick = () => {
+      const it = items[Number(el.dataset.i)];
+      if (it.pi !== undefined) {
+        const p = state.data.pois[it.pi];
+        state.sel = { type: 'poi', pi: it.pi };
+        state.floorId = p.f; state.view.x = p.x; state.view.y = p.y;
+      } else if (it.ni !== undefined) {
+        const n = state.data.nodes[it.ni];
+        state.sel = { type: 'node', ni: it.ni };
+        state.floorId = state.data.floors[n[2]] ? state.data.floors[n[2]].id : state.floorId;
+        state.view.x = n[0]; state.view.y = n[1];
+      } else {
+        const lb = state.data.floors[it.fi].labels[it.li];
+        state.sel = { type: 'label', fi: it.fi, li: it.li };
+        state.floorId = state.data.floors[it.fi].id;
+        state.view.x = lb.x; state.view.y = lb.y;
+      }
+      state.multi = null;
+      searchList.style.display = 'none';
+      $('searchBox').value = '';
+      renderRail(); renderPropPanel(); render();
+    };
+  });
+});
+document.addEventListener('click', e => {
+  if (!$('searchWrap').contains(e.target)) searchList.style.display = 'none';
+});
+
+// ============================== 楼层栏 ==============================
+function renderRail() {
+  const d = state.data;
+  const rail = $('floorRail');
+  if (!d) { rail.innerHTML = ''; return; }
+  const byId = new Map(d.floors.map((f, i) => [f.id, i]));
+  const order = d.meta.floorOrder.filter(id => byId.has(id));
+  d.floors.forEach(f => { if (order.indexOf(f.id) < 0) order.push(f.id); });
+  rail.innerHTML = order.map(id => {
+    const fi = byId.get(id);
+    return '<div class="floorBtn' + (id === state.floorId ? ' active' : '') + '" data-fi="' + fi + '">' +
+      '<span class="mv" data-mv="up" title="上移">▲</span>' + esc(id) +
+      '<span class="mv" data-mv="down" title="下移">▼</span></div>';
+  }).join('') +
+    '<button id="btnAddFloor" title="新增楼层" style="margin-left:6px">＋层</button>' +
+    '<button id="btnDelFloor" class="danger" title="删除当前楼层">－层</button>' +
+    '<button id="btnFloorProps" title="楼层属性">层属性</button>';
+  rail.querySelectorAll('.floorBtn').forEach(el => {
+    el.addEventListener('click', e2 => {
+      const fi = Number(el.dataset.fi);
+      const mv = e2.target.dataset ? e2.target.dataset.mv : null;
+      if (mv) { moveFloorOrder(d.floors[fi].id, mv); return; }
+      state.floorId = d.floors[fi].id;
+      state.sel = null; state.multi = null;
+      renderRail(); renderPropPanel(); render();
+    });
+  });
+  $('btnAddFloor').onclick = addFloor;
+  $('btnDelFloor').onclick = () => {
+    const fi = curFloorIdx();
+    if (fi >= 0) deleteFloor(fi);
+  };
+  $('btnFloorProps').onclick = () => {
+    const fi = curFloorIdx();
+    if (fi >= 0) { state.sel = { type: 'floor', fi }; renderPropPanel(); }
+  };
+}
+function moveFloorOrder(id, dir) {
+  const d = state.data;
+  const fo = d.meta.floorOrder.slice();
+  const i = fo.indexOf(id);
+  const j = dir === 'up' ? i - 1 : i + 1;
+  if (i < 0 || j < 0 || j >= fo.length) return;
+  const tmp = fo[i]; fo[i] = fo[j]; fo[j] = tmp;
+  pushCmd('调整楼层顺序', [setPatch(d.meta, 'floorOrder', fo)]);
+  renderRail();
+}
+function addFloor() {
+  const d = state.data;
+  const id = prompt('新楼层编号（如 L16）：');
+  if (!id) return;
+  if (d.floors.some(f => f.id === id)) { alert('该楼层编号已存在'); return; }
+  const level = Number(prompt('垂直层级（地面为 0，如 15）：', '15')) || 0;
+  const fl = {
+    id: id, name: id, note: '', level: level,
+    kind: 'indoor', bounds: [0, 0, 8000, 8000], polys: [], labels: []
+  };
+  pushCmd('新增楼层 ' + id, [
+    insPatch(d.floors, d.floors.length, [fl]),
+    setPatch(d.meta, 'floorOrder', [id].concat(d.meta.floorOrder))
+  ]);
+  state.floorId = id;
+  rebuildLinks(); renderRail(); renderPropPanel(); render();
+}
+
+// ============================== 模态框 ==============================
+function showModal(title, bodyHtml, btns) {
+  $('modalTitle').textContent = title;
+  $('modalBody').innerHTML = bodyHtml;
+  const row = $('modalBtns');
+  row.innerHTML = '';
+  btns.forEach(b => {
+    const el = document.createElement('button');
+    el.textContent = b.label;
+    if (b.cls) el.className = b.cls;
+    el.onclick = () => { hideModal(); if (b.fn) b.fn(); };
+    row.appendChild(el);
+  });
+  $('modalMask').style.display = 'flex';
+}
+function hideModal() { $('modalMask').style.display = 'none'; }
+
+// ============================== 工具栏事件 ==============================
+$('btnImport').onclick = () => $('fileInput').click();
+$('fileInput').onchange = e => {
+  const f = e.target.files[0];
+  if (f) readJsonFile(f);
+  e.target.value = '';
+};
+function readJsonFile(f) {
+  const doRead = () => {
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const obj = JSON.parse(r.result);
+        const errs = precheck(obj);
+        if (errs.length) {
+          showModal('导入失败', '<p>结构预检未通过：</p><ul>' + errs.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>', [{ label: '知道了' }]);
+          return;
+        }
+        importData(obj);
+      } catch (err) {
+        showModal('导入失败', '<p>JSON 文件解析出错：' + esc(err.message) + '</p>', [{ label: '知道了' }]);
+      }
+    };
+    r.readAsText(f, 'utf-8');
+  };
+  if (state.dirty) {
+    showModal('覆盖当前编辑', '<p>当前有未导出的修改，导入新文件将丢弃（撤销历史也会清空）。继续？</p>', [
+      { label: '取消' }, { label: '继续导入', cls: 'danger', fn: doRead }
+    ]);
+  } else doRead();
+}
+
+$('btnExport').onclick = () => {
+  if (!state.data) return;
+  const result = validate();
+  renderValPanel(result);
+  const doExport = () => {
+    const name = (prompt('导出文件名：', 'map-data.json') || '').trim();
+    if (!name) return;
+    download(name, exportJSON());
+    state.dirty = false;
+    $('stDirty').innerHTML = '';
+  };
+  if (result.errors.length) {
+    showModal('校验发现错误',
+      '<p>存在 <b style="color:var(--err)">' + result.errors.length + '</b> 个错误级问题（详见右侧校验报告），导出的数据可能被主应用拒绝或产生异常导航。</p><p>仍要导出吗？</p>',
+      [{ label: '取消' }, { label: '仍要导出', cls: 'danger', fn: doExport }]);
+  } else doExport();
+};
+$('btnValidate').onclick = () => {
+  if (!state.data) return;
+  renderValPanel(validate());
+};
+$('btnUndo').onclick = undo;
+$('btnRedo').onclick = redo;
+$('toolSel').onchange = e => {
+  state.tool = e.target.value;
+  state.addEdgeFrom = null;
+  state.drawPts = null;
+  $('stTool').textContent = '工具: ' + e.target.selectedOptions[0].textContent;
+  render();
+};
+$('refChk').onchange = e => { state.showRef = e.target.checked; render(); };
+$('layerMenu').querySelectorAll('[data-layer]').forEach(chk => {
+  chk.addEventListener('change', () => {
+    state.layers[chk.dataset.layer] = chk.checked;
+    render();
+  });
+});
+$('btnDelete').onclick = deleteSelection;
+$('panelToggle').onclick = () => $('panel').classList.toggle('open');
+$('zoomIn').onclick = () => { state.view.s *= 1.25; render(); };
+$('zoomOut').onclick = () => { state.view.s /= 1.25; render(); };
+$('zoomFit').onclick = () => { fitView(); render(); };
+$('zoomHome').onclick = () => {
+  const b = (curFloor() || { bounds: [0, 0, 8000, 8000] }).bounds;
+  state.view.x = (b[0] + b[2]) / 2;
+  state.view.y = (b[1] + b[3]) / 2;
+  render();
+};
+
+$('polyTypeSel').innerHTML = POLY_TYPES.map(t => '<option value="' + t + '">' + polyTypeName(t) + '</option>').join('');
+
+// ============================== 键盘 ==============================
+window.addEventListener('keydown', e => {
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    const sel = state.sel;
+    if (sel && sel.type === 'poly' && sel.vertex !== null && sel.vertex !== undefined) {
+      const po = state.data.floors[sel.fi].polys[sel.pi];
+      if (po && po.p.length > 6) {
+        const at = sel.vertex * 2;
+        const geo = [delPatch(po.p, at, [po.p[at], po.p[at + 1]])];
+        pushCmd('删除顶点', withDerive(geo, () => recalcBoundsPatch(sel.fi)));
+        state.sel = { type: 'poly', fi: sel.fi, pi: sel.pi, vertex: null };
+        renderPropPanel(); render();
+        return;
+      }
+    }
+    deleteSelection();
+    e.preventDefault();
+  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+    undo(); e.preventDefault();
+  } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
+    redo(); e.preventDefault();
+  } else if (e.key === 'Escape') {
+    if (state.drawPts) { state.drawPts = null; render(); }
+    else if (state.addEdgeFrom !== null && state.addEdgeFrom !== undefined) { state.addEdgeFrom = null; render(); }
+    else if (state.sel || state.multi) { state.sel = null; state.multi = null; renderPropPanel(); render(); }
+  } else if (e.key === 'Enter') {
+    if (state.drawPts) finishDrawPoly();
+  }
+});
+
+window.addEventListener('resize', render);
+window.addEventListener('beforeunload', e => {
+  if (state.dirty) { e.preventDefault(); e.returnValue = ''; }
+});
+
+render();
+</script>
+</body>
+</html>
