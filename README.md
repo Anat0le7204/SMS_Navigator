@@ -39,10 +39,10 @@
 ├─ config/
 │  └─ classroom-map.json      # 班级 ↔ 教室映射（每年改动只改这里）
 ├─ data/
-│  ├─ build_data.py           # 从 onemap.top 抽取地图数据
-│  ├─ wenti_floors.py         # 文体楼楼层重映射（GF1→F2、L2→F3、GF2→F4）
+│  ├─ build_data.py           # 从 onemap.top 抽取地图数据（含文体楼楼层统一编码）
 │  ├─ map-data.json           # 结构化离线数据
 │  └─ map-data.js             # 开发用包装（build.py 生成）
+├─ tools/                     # 地图数据可视化编辑器（map-editor.html + 文档）
 └─ docs/                      # 架构、数据、构建与变更文档
 ```
 

@@ -1,5 +1,12 @@
 # 变更记录
 
+## v2.6 — 2026-11-01
+
+### 项目清理：移除冗余文件
+
+- 将 `data/wenti_floors.py` 的楼层合并逻辑内联进 `data/build_data.py`（`merge_wenti_floors`），删除独立脚本文件；数据重新生成管线不受影响，内联输出与原脚本逐字节一致。
+- 核查其余文件：`src/js` 10 个模块均被 `index.html` 引用；`config/classroom-map.js`、`data/map-data.js` 为生成产物、已正确 gitignore；`tools/`（地图数据可视化编辑器 + 文档）为正式工具，保留并在 README 结构中标注。
+
 ## v2.5 — 2026-10-31
 
 ### 楼层编码统一（文体楼并入 L 编码）

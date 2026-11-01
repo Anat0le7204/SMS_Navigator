@@ -440,6 +440,101 @@ out_edges = []
 for a, b, w, k in edges:
     out_edges.append([node_index[a], node_index[b], w, {"walk": 0, "stair": 1, "lift": 2, "entry": 3}[k]])
 
+# ---------------------------------------------------------------- 文体楼楼层统一编码
+# 把文体楼 GF1（2 层）→L2、原 L2 文体楼部分（3 层）→L3、GF2（4 层）→L4，
+# 与全校区 L 编码合并显示；垂直边权重按新层级差重算。详见 docs/DATA.md。
+
+
+def _wenti_bbox(polys):
+    xs = [p["p"][i] for p in polys for i in range(0, len(p["p"]), 2)]
+    ys = [p["p"][i] for p in polys for i in range(1, len(p["p"]), 2)]
+    return (min(xs), min(ys), max(xs), max(ys)) if xs else (0, 0, 0, 0)
+
+
+def _wenti_centroid(p):
+    pts = p["p"]
+    return (sum(pts[0::2]) / len(pts[0::2]), sum(pts[1::2]) / len(pts[1::2]))
+
+
+def _wenti_bounds(polys, labels):
+    xs = [p["p"][i] for p in polys for i in range(0, len(p["p"]), 2)]
+    ys = [p["p"][i] for p in polys for i in range(1, len(p["p"]), 2)]
+    xs += [l["x"] for l in labels]
+    ys += [l["y"] for l in labels]
+    if not xs:
+        return [0, 0, 0, 0]
+    pad = 40
+    return [round(min(xs) - pad, 1), round(min(ys) - pad, 1),
+            round(max(xs) + pad, 1), round(max(ys) + pad, 1)]
+
+
+def merge_wenti_floors(d):
+    """GF1/L2/GF2 → L2/L3/L4 合并（幂等：已合并则原样返回）。"""
+    F = {f["id"]: f for f in d["floors"]}
+    if "GF1" not in F or "GF2" not in F:
+        return d
+    old_order = d["meta"]["floorOrder"]
+    x0, y0, x1, y1 = _wenti_bbox(F["GF1"]["polys"] + F["GF2"]["polys"])
+    pad = 30
+    x0 -= pad; y0 -= pad; x1 += pad; y1 += pad
+
+    def in_wt(x, y): return x0 <= x <= x1 and y0 <= y <= y1
+    def is_wt(x, y, bld): return in_wt(x, y) or bld == "文体楼"
+
+    # 拆分共用 L2：文体楼部分（→L3）与教学楼等部分（留在 L2）
+    l2 = F["L2"]
+    wt_polys = [p for p in l2["polys"] if in_wt(*_wenti_centroid(p))]
+    keep_polys = [p for p in l2["polys"] if not in_wt(*_wenti_centroid(p))]
+    wt_labels = [l for l in l2["labels"] if in_wt(l["x"], l["y"])]
+    keep_labels = [l for l in l2["labels"] if not in_wt(l["x"], l["y"])]
+
+    l2["polys"] = keep_polys + F["GF1"]["polys"]
+    l2["labels"] = keep_labels + F["GF1"]["labels"]
+    l2["bounds"] = _wenti_bounds(l2["polys"], l2["labels"])
+
+    l3 = F["L3"]
+    l3["polys"] = l3["polys"] + wt_polys
+    l3["labels"] = l3["labels"] + wt_labels
+    l3["bounds"] = _wenti_bounds(l3["polys"], l3["labels"])
+
+    l4 = F["L4"]
+    l4["polys"] = l4["polys"] + F["GF2"]["polys"]
+    l4["labels"] = l4["labels"] + F["GF2"]["labels"]
+    l4["bounds"] = _wenti_bounds(l4["polys"], l4["labels"])
+
+    d["floors"] = [f for f in d["floors"] if f["id"] not in ("GF1", "GF2")]
+    new_order = [f["id"] for f in d["floors"]]
+    d["meta"]["floorOrder"] = new_order
+
+    for n in d["nodes"]:
+        old_fid = old_order[n[2]]
+        if old_fid == "GF1":
+            n[2] = new_order.index("L2")
+        elif old_fid == "GF2":
+            n[2] = new_order.index("L4")
+        elif old_fid == "L2" and is_wt(n[0], n[1], n[5]):
+            n[2] = new_order.index("L3")
+        else:
+            n[2] = new_order.index(old_fid)
+
+    for p in d["pois"]:
+        if p["f"] == "GF1":
+            p["f"] = "L2"
+        elif p["f"] == "GF2":
+            p["f"] = "L4"
+        elif p["f"] == "L2" and is_wt(p["x"], p["y"], p.get("b")):
+            p["f"] = "L3"
+
+    levels = {f["id"]: f["level"] for f in d["floors"]}
+    for e in d["edges"]:
+        a, b, w, k = e
+        if k in (1, 2):
+            la = levels[new_order[d["nodes"][a][2]]]
+            lb = levels[new_order[d["nodes"][b][2]]]
+            e[2] = round((9.0 if k == 1 else 6.0) * abs(la - lb), 2)
+    return d
+
+
 data = {
     "meta": {
         "name": "深圳中学",
@@ -454,9 +549,8 @@ data = {
     "pois": pois,
 }
 
-# 文体楼楼层重映射：GF1→F2、文体楼的 L2→F3、GF2→F4（其他楼不动）
-from wenti_floors import apply as remap_wenti_floors
-data = remap_wenti_floors(data)
+# 文体楼楼层统一编码：GF1/L2/GF2 并入 L2/L3/L4（逻辑已内联在上方 merge_wenti_floors）
+data = merge_wenti_floors(data)
 
 with open(OUT, "w", encoding="utf-8") as f:
     json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
