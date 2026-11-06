@@ -36,15 +36,15 @@ python scripts/build.py
 index.html
 ```
 
-同时生成/刷新 `data/map-data.js`。
+同时生成/刷新 `data/map-data.js` 与 `data/room.js`。
 
 ### 构建做了什么
 
 1. 读取 `src/index.html`；
 2. 把 `<link rel="stylesheet" href="styles/...">` 替换为内联 `<style>`；
-3. 把 9 个 `<script src="js/...">` 按顺序拼接，包进一个 `(function(){ ... })()`，防止污染全局；
+3. 把 10 个 `<script src="js/...">` 按顺序拼接，包进一个 `(function(){ ... })()`，防止污染全局；
 4. 把 `src/assets/badge.png` 替换为 base64 data URI（品牌区、导航条、favicon 共 3 处）；
-5. 把 `data/map-data.json` 替换为 `window.MAP_DATA = {...}`；
+5. 把 `data/map-data.json` 替换为 `window.MAP_DATA = {...}`，`data/room.json` 替换为 `window.ROOM_DATA = {...}`；
 6. 写入根目录 HTML。
 
 脚本只做“内联”，不压缩、不转译，构建前后逻辑一致，便于排查。

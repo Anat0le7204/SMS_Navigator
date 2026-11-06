@@ -15,7 +15,7 @@
 ## 功能
 
 - **起终点**：搜索教室号 / 功能室 / 校门，或在地图上点选，支持交换与快捷地点。
-- **班级直达**：输入班级名（如「高一(1)班」或简写「高一1班」）即可定位到对应教室；映射关系在 `data/classroom-map.json` 维护，每年班级/教室变动时只改这个文件。
+- **房间目录**：`data/room.json` 登记房间编号、名称与分类（教室 / 功能室 / 宿舍 / 办公室）。输入「高一(1)班」「高一1班」或编号「A101」都能直达对应教室；每学年房间变动只改这个文件。
 - **项目仓库入口**：面板底部提供 GitHub 仓库链接，便于反馈问题与查看源码。
 - **最短路径**：基于官方路网节点的 Dijkstra；默认**只走楼梯**（学生不能使用电梯），可切换“使用电梯（教职工/访客）”。
 - **分步指引**：每步包含方向、距离、所在楼层，换层单独成步，并提示途经房间。
@@ -36,12 +36,13 @@
 │  ├─ js/                     # 00-data / 15-compass / 10-floorplan … 70-app
 │  └─ assets/badge.png        # 深圳中学校徽（透明底）
 ├─ scripts/
-│  ├─ build.py                # 打包脚本：内联 CSS/JS/校徽/数据/班级配置
+│  ├─ build.py                # 打包脚本：内联 CSS/JS/校徽/数据/房间目录
 │  └─ build_data.py           # 从 onemap.top 抽取地图数据（含文体楼楼层统一编码）
 ├─ data/
-│  ├─ classroom-map.json      # 班级 ↔ 教室映射（每年改动只改这里）
+│  ├─ room.json               # 房间目录：编号 / 名称 / 分类（每学年改动只改这里）
 │  ├─ map-data.json           # 结构化离线数据
-│  └─ map-data.js             # 开发用包装（build.py 生成）
+│  ├─ map-data.js             # 开发用包装（build.py 生成）
+│  └─ room.js                 # 房间目录包装（build.py 生成）
 ├─ tools/                     # 地图数据可视化编辑器（map-editor.html + 文档）
 └─ docs/                      # 架构、数据、构建与变更文档
 ```
@@ -67,10 +68,20 @@ python scripts/build.py
 脚本会：
 
 1. 把 4 个 CSS 文件内联进 `<style>`；
-2. 把 9 个 JS 模块按 `index.html` 中的顺序拼接成一个 IIFE；
+2. 把 10 个 JS 模块按 `index.html` 中的顺序拼接成一个 IIFE；
 3. 把校徽转成 base64 data URI（品牌区、导航条、favicon）；
-4. 把 `data/map-data.json` 内联为 `window.MAP_DATA`；
+4. 把 `data/map-data.json` 内联为 `window.MAP_DATA`、`data/room.json` 内联为 `window.ROOM_DATA`；
 5. 输出根目录的 `index.html`。
+
+### 校验房间目录
+
+改完 `data/room.json` 后先跑一遍校验：
+
+```bash
+python scripts/check_rooms.py
+```
+
+脚本会检查字段、分类取值、编号重复，并对照 `data/map-data.json` 报告哪些房间无法定位；格式有错时以退出码 1 结束。
 
 ## 键盘快捷键
 
@@ -86,7 +97,7 @@ python scripts/build.py
 - 数据来自 `https://www.onemap.top/szzxtest/` 的公开地图接口，仅用于校内导航演示。
 - 坐标为地图单位（1 单位 ≈ 0.1 m），楼层高度字段缺失，跨层按楼梯 9 m/层、电梯 6 m/层折算。
 - 原始路网没有显式跨层边，垂直连接由同名楼梯/电梯 + 相邻楼层 + 坐标匹配推断；室外校门到 L1 的连接为合成边；J 栋入口为补丁边。详见 `docs/DATA.md`。
-- 房间以编号为主（D202、I1501），班级映射不在数据中。
+- 房间以编号为主（D202、I1501）；名称与分类由 `data/room.json` 补充，未登记的房间仍可按编号搜索。
 - 指南针需要 HTTPS/localhost 与设备传感器；iOS 需在点击开关时授权。详见 `docs/COMPASS.md`。
 
 ## 致谢

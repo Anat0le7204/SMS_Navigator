@@ -2,7 +2,7 @@
 
 ## 1. 总体结构
 
-应用是纯前端、零依赖的原生 JavaScript + SVG。源码按职责拆分为 8 个脚本和 4 个样式文件，构建时按顺序拼接为一个 IIFE，并内联数据与图片，产出单文件 `index.html`。
+应用是纯前端、零依赖的原生 JavaScript + SVG。源码按职责拆分为 10 个脚本和 4 个样式文件，构建时按顺序拼接为一个 IIFE，并内联数据与图片，产出单文件 `index.html`。
 
 ```
 index.html
@@ -12,6 +12,7 @@ index.html
  └─ styles/navigation.css    导航模式（顶部指令条 + 底部路段卡）
 
 js/00-data.js               数据解析、全局状态、DOM 引用、图标、toast
+js/05-rooms.js              房间目录索引：按名称/编号匹配 POI、分类展示
 js/15-compass.js            指南针检测/授权/平滑、朝向旋转、开关状态
 js/10-floorplan.js          楼层多边形渲染、标签避让
 js/20-view.js               视口变换、缩放/平移、取景、比例尺
@@ -37,6 +38,8 @@ data/map-data.json
       ├─ 50-ui.js         摘要卡、步骤列表、搜索、楼层栏
       └─ 60-navigation.js 以 steps 为单位逐条播放
 ```
+
+房间目录 `data/room.json`（`{ date, data: [{ room_number, name, category }] }`）由构建时内联为 `window.ROOM_DATA`，`05-rooms.js` 把名称/编号映射到对应 POI，搜索时命中即以房间名 + 编号的形式展示，并带上分类。
 
 `state` 是单一状态源，字段包括：
 

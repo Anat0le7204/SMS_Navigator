@@ -198,8 +198,8 @@ function searchPois(q, limit=9){
   q = q.trim().toLowerCase();
   if(!q) return [];
   const scored = [];
-  // 班级命中：显示班级名，选中后定位到对应教室（数据来自独立配置）
-  for(const c of matchClassPois(q, limit)){
+  // 房间目录命中：显示房间名与编号，选中后定位到对应房间（数据来自独立配置）
+  for(const c of matchRoomPois(q, limit)){
     scored.push([c.score + 10, c.poi]);
   }
   for(const p of POIS){
@@ -228,21 +228,25 @@ function renderSuggest(q){
     return;
   }
   if(!list.length){
-    suggestEl.innerHTML = `<div class="sg-none">没有找到「${esc(q)}」，试试 D202、形体室、南门</div>`;
+    const near = matchUnmappedRooms(q);
+    const note = near.length
+      ? `<div class="sg-note">目录中有：${near.map(r => `${esc(r.name)} ${esc(r.num)}`).join("、")}<br>该房间暂无地图位置，无法规划路线</div>`
+      : "";
+    suggestEl.innerHTML = `<div class="sg-none">没有找到「${esc(q)}」，试试 D202、形体室、南门</div>${note}`;
     suggestEl.classList.add("show");
     return;
   }
   let html = `<div class="sg-head">搜索结果</div>`;
   list.forEach((p,i)=>{
     const f = FLOOR_BY_ID.get(p.f);
-    const nameHtml = p.className
-      ? `${highlight(p.className, q)} <span class="sg-room">${esc(p.n)}</span>`
+    const nameHtml = p.roomName
+      ? `${highlight(p.roomName, q)} <span class="sg-room">${esc(p.n)}</span>`
       : highlight(p.n, q);
     html += `<button class="sg-item" data-i="${i}">
       <span class="sg-ico">${poiIcon(p.t)}</span>
       <span class="sg-main">
         <span class="sg-name">${nameHtml}</span>
-        <span class="sg-meta">${esc(f.name)}${p.b ? " · " + esc(p.b) : ""} · ${esc(p.t)}</span>
+        <span class="sg-meta">${esc(f.name)}${p.b ? " · " + esc(p.b) : ""} · ${esc(p.roomCategory || p.t)}</span>
       </span>
     </button>`;
   });

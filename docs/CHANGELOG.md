@@ -1,5 +1,26 @@
 # 变更记录
 
+## v2.9 — 2026-11-06
+
+### 导入最新房间目录（2026-11-04 版，123 条）
+
+- `data/room.json` 全量替换为最新房间目录：123 条，其中功能室 65、教室 47、办公室 11。
+- 新增 `scripts/check_rooms.py`：校验字段、分类取值、编号重复，并对照 `data/map-data.json` 报告哪些房间可定位。
+- 搜索无结果时增加目录提示：房间在目录中但地图未标注时，显示「暂无地图位置，无法规划路线」。
+- 已知数据缺口（不影响构建与运行）：
+  - 20 条编号在 `map-data.json` 中不存在（E/F/I 栋部分房间、图书馆 A–D 区、校史馆、小卖部、琴房等），搜索时会给出提示但无法导航；
+  - A233（母婴室）、C204（中医科）、C205（全科诊室）在地图中只有卫生间类 POI，定位可能不准，建议核对底图编号。
+
+## v2.8 — 2026-11-06
+
+### 房间目录改为标准化 `room.json`
+
+- `data/classroom-map.json`（班级 ↔ 教室）改为 `data/room.json`：顶层 `date` + `data[]`，条目统一为 `room_number` / `name` / `category`（取值：教室 / 功能室 / 宿舍 / 办公室）。
+- `src/js/05-classrooms.js` → `src/js/05-rooms.js`：按房间名称或编号匹配 POI；同一编号有多个 POI（如 `B101` 教室与卫生间）时优先取教室类；搜索结果展示房间名 + 编号 + 分类。
+- 名称查询忽略空格与括号，`高一(1)班`、`高一1班` 等价。
+- `scripts/build.py` 改读 `data/room.json`，内联为 `window.ROOM_DATA` 并生成 `data/room.js`；文件缺失时以空目录兜底。
+- 同步更新 `src/index.html`、`.gitignore` 与 README / ARCHITECTURE / DATA / BUILD 文档。
+
 ## v2.7 — 2026-11-01
 
 ### 目录重排：脚本集中到 scripts/，配置并入 data/
