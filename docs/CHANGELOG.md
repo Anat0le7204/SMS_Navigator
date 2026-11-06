@@ -1,5 +1,17 @@
 # 变更记录
 
+## v2.11 — 2026-11-06
+
+### 文档全面重写（对标头部前端项目实践）
+
+- 参考 GitHub Star 前 10 的热门前端项目（freeCodeCamp、React、Vue、Bootstrap、Next.js、three.js、axios、Angular、Ant Design、Material UI）的文档写法重写项目文档：
+  - README 重排为首屏（定位 + 徽章 + 快速导航链接 + 截图）→ 功能特性 → 快速开始 → 使用说明 → 环境与兼容 → 开发与构建 → 项目结构 → 文档索引 → 常见问题 → 数据限制 → 贡献 → 许可证；
+  - 新增界面截图 `docs/images/`（规划界面、导航模式、移动端），次要截图用 `<details>` 折叠；
+  - 新增 `CONTRIBUTING.md`（贡献流程、本地开发约定、文档规范、代码风格）；
+  - `docs/` 四篇文档（ARCHITECTURE / DATA / BUILD / COMPASS）统一补充「← 返回 README」导航与章节目录；
+  - README 新增 FAQ 章节（指南针权限、房间无法定位、单文件取舍、旋转性能等）。
+- 不涉及运行时行为变化，`index.html` 无改动。
+
 ## v2.10 — 2026-11-06
 
 ### 地图房间标签改为两行（名称 + 编号）
