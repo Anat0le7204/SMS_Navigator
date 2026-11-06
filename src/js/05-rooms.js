@@ -27,6 +27,12 @@ const ROOM_ENTRIES = (ROOM_DATA.data || []).map(r => {
   };
 }).filter(r => r.num && r.name);
 
+// 房间编号 → 目录条目（地图标签按编号取名称）
+const ROOM_BY_NO = new Map();
+for(const r of ROOM_ENTRIES){
+  if(!ROOM_BY_NO.has(r.num)) ROOM_BY_NO.set(r.num, r);
+}
+
 // 房间编号 → POI（编号可能与卫生间等重名，优先取教室类）
 const POI_BY_ROOM_NO = new Map();
 for(const p of POIS){
@@ -74,7 +80,5 @@ function matchUnmappedRooms(q, limit=3){
 
 // 房间编号 → 目录条目（用于按编号反查名称与分类）
 function roomInfo(roomNumber){
-  const no = normRoomKey(roomNumber);
-  if(!no) return null;
-  return ROOM_ENTRIES.find(r => r.numKey === no) || null;
+  return ROOM_BY_NO.get(String(roomNumber || "").trim()) || null;
 }

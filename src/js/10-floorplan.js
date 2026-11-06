@@ -65,7 +65,17 @@ function buildFloor(id){
     const isOutdoor = l.c === "roadmark" || l.c === "gate";
     const cls = isRoom ? "lb-room" : isCirculation ? "lb-circ" : isOutdoor ? "lb-site" : "lb-room";
     const disp = l.n === "steam" ? "STEAM 中心" : l.n;
-    labels += `<text class="${cls}" x="${l.x}" y="${l.y}" text-anchor="middle" dominant-baseline="middle" paint-order="stroke" stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round">${esc(disp)}</text>`;
+    // 房间目录里有名称时显示两行：第一行名称，第二行编号；未命名房间仍只显示编号
+    const info = isRoom ? roomInfo(l.n) : null;
+    const nm = info && info.name && !/^未命名/.test(info.name) ? info.name : "";
+    if(nm){
+      labels += `<text class="lb-room lb-2l" x="${l.x}" y="${l.y}" text-anchor="middle" dominant-baseline="middle" paint-order="stroke" stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round">`
+        + `<tspan class="lb-name" x="${l.x}" dy="-0.62em">${esc(nm)}</tspan>`
+        + `<tspan class="lb-no" x="${l.x}" dy="1.24em">${esc(disp)}</tspan>`
+        + `</text>`;
+    } else {
+      labels += `<text class="${cls}" x="${l.x}" y="${l.y}" text-anchor="middle" dominant-baseline="middle" paint-order="stroke" stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round">${esc(disp)}</text>`;
+    }
   }
   out += `<g id="labels">${labels}</g>`;
   return out;
@@ -94,6 +104,9 @@ function updateLabelStyle(){
   const circs = [...g.querySelectorAll(".lb-circ")];
   const outs = [...g.querySelectorAll(".lb-out")];
   rooms.forEach(t=>{ t.setAttribute("font-size", fs.toFixed(2)); t.setAttribute("fill", "#56616f"); });
+  // 两行标签：名称略深加粗，编号浅灰，字号沿用父级 text
+  g.querySelectorAll(".lb-name").forEach(t=>{ t.setAttribute("fill", "#49525f"); t.setAttribute("font-weight", "600"); });
+  g.querySelectorAll(".lb-no").forEach(t=>{ t.setAttribute("fill", "#8b93a0"); t.setAttribute("font-weight", "400"); });
   circs.forEach(t=>{ t.setAttribute("font-size", (fs*0.9).toFixed(2)); t.setAttribute("fill", "#6f7885"); });
   outs.forEach(t=>{ t.setAttribute("font-size", (fs*1.05).toFixed(2)); t.setAttribute("fill", "#7c8694"); t.setAttribute("letter-spacing","0.4"); });
   g.querySelectorAll(".lb-site").forEach(t=>{ t.setAttribute("font-size", (fs*1.15).toFixed(2)); t.setAttribute("fill", "#5d6876"); t.setAttribute("font-weight","600"); t.setAttribute("letter-spacing","1.2"); });
@@ -114,6 +127,9 @@ function layoutLabels(fs){
   const g = floorLayer.querySelector("#labels");
   if(!g) return;
   visibleLabels = [];
+  // 复位两行标签：先恢复名称行，再按当前缩放决定是否需要退回单行
+  g.querySelectorAll(".lb-name").forEach(t=>{ t.style.display = ""; });
+  g.querySelectorAll(".lb-no").forEach(t=>{ t.setAttribute("dy", "1.16em"); });
   const items = [];
   g.querySelectorAll("text").forEach(t=>{
     const cls = t.getAttribute("class");
@@ -121,41 +137,59 @@ function layoutLabels(fs){
     const isBld = /[楼]|steam/i.test(txt);
     const pri = cls === "lb-site" ? (isBld ? 5 : 4) : cls === "lb-circ" ? 3 : cls === "lb-out" ? 1 : 2;
     if(!txt) { t.style.display = "none"; return; }
-    items.push({t, pri, txt, x:+t.getAttribute("x"), y:+t.getAttribute("y")});
+    items.push({t, pri, txt, twoLine: /lb-2l/.test(cls), x:+t.getAttribute("x"), y:+t.getAttribute("y")});
   });
   items.sort((a,b)=> b.pri - a.pri || b.txt.length - a.txt.length);
-  const placed = [];
   const cell = fs*2.2;
   const grid = new Map();
   const key = (cx,cy)=>cx+","+cy;
-  for(const it of items){
-    const w = textWidth(it.txt, fs) + fs*0.35;
-    const h = fs*1.12;
-    const r = [it.x-w/2, it.y-h/2, it.x+w/2, it.y+h/2];
+  const box = (it, w, h)=>[it.x - w/2, it.y - h/2, it.x + w/2, it.y + h/2];
+  const hit = r => {
     const cx0 = Math.floor(r[0]/cell), cx1 = Math.floor(r[2]/cell);
     const cy0 = Math.floor(r[1]/cell), cy1 = Math.floor(r[3]/cell);
-    let hit = false;
-    for(let cx=cx0; cx<=cx1 && !hit; cx++){
+    for(let cx=cx0; cx<=cx1; cx++){
       for(let cy=cy0; cy<=cy1; cy++){
         const arr = grid.get(key(cx,cy));
         if(!arr) continue;
         for(const q of arr){
-          if(r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1]){ hit = true; break; }
+          if(r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1]) return true;
         }
-        if(hit) break;
       }
     }
-    if(hit){ it.t.style.display = "none"; }
-    else {
-      it.t.style.display = "";
-      visibleLabels.push(it.t);
-      placed.push(r);
-      for(let cx=cx0; cx<=cx1; cx++) for(let cy=cy0; cy<=cy1; cy++){
-        const k = key(cx,cy);
-        if(!grid.has(k)) grid.set(k, []);
-        grid.get(k).push(r);
-      }
+    return false;
+  };
+  const take = (it, r) => {
+    it.t.style.display = "";
+    visibleLabels.push(it.t);
+    const cx0 = Math.floor(r[0]/cell), cx1 = Math.floor(r[2]/cell);
+    const cy0 = Math.floor(r[1]/cell), cy1 = Math.floor(r[3]/cell);
+    for(let cx=cx0; cx<=cx1; cx++) for(let cy=cy0; cy<=cy1; cy++){
+      const k = key(cx,cy);
+      if(!grid.has(k)) grid.set(k, []);
+      grid.get(k).push(r);
     }
+  };
+
+  for(const it of items){
+    if(it.twoLine){
+      const nameEl = it.t.querySelector(".lb-name");
+      const noEl = it.t.querySelector(".lb-no");
+      const wName = textWidth(nameEl ? nameEl.textContent.trim() : it.txt, fs);
+      const wNo = textWidth(noEl ? noEl.textContent.trim() : it.txt, fs);
+      // 两行标签按“较宽的一行 × 两行高度”占位
+      const r2 = box(it, Math.max(wName, wNo), fs*2.55);
+      if(!hit(r2)){ take(it, r2); continue; }
+      // 名称放不下时退回单行编号，保持原有标注密度与可读性
+      if(nameEl) nameEl.style.display = "none";
+      if(noEl) noEl.setAttribute("dy", "0");
+      const r1 = box(it, wNo + fs*0.35, fs*1.12);
+      if(hit(r1)) it.t.style.display = "none";
+      else take(it, r1);
+      continue;
+    }
+    const r = box(it, textWidth(it.txt, fs) + fs*0.35, fs*1.12);
+    if(hit(r)) it.t.style.display = "none";
+    else take(it, r);
   }
   updateLabelRotation(true);
 }
