@@ -134,12 +134,37 @@ mapEl.addEventListener("wheel", e=>{
   zoomAt(e.deltaY < 0 ? 1.12 : 1/1.12, e.clientX-r.left, e.clientY-r.top);
 }, {passive:false});
 
+/* 桌面端在 #map 上按下鼠标时，浏览器会从 SVG 文字标注开始建立原生选区；
+   拖拽过程中 <g> 的 transform 每帧变化，选区还会失控扩大（看起来像全选页面文字）。
+   在选区源头拦掉，并在地图拖拽期间锁住整页选区。 */
+mapEl.addEventListener("selectstart", e=>e.preventDefault());
+mapEl.addEventListener("dragstart", e=>e.preventDefault());
+
+let selectionLocked = false;
+function lockPageSelection(){
+  if(selectionLocked) return;
+  selectionLocked = true;
+  document.body.classList.add("map-dragging");
+}
+function unlockPageSelection(){
+  if(!selectionLocked) return;
+  selectionLocked = false;
+  document.body.classList.remove("map-dragging");
+}
+/* 地图按下的同时清掉页面里已有的选区，避免残留高亮被误认为本次点击选中了文字 */
+function clearTextSelection(){
+  const sel = window.getSelection();
+  if(sel && sel.rangeCount && !sel.isCollapsed) sel.removeAllRanges();
+}
+window.addEventListener("blur", unlockPageSelection);
+
 /* 触控：单指拖拽，双指捏合缩放。用 Pointer Events 统一鼠标与触摸。 */
 const activePointers = new Map();   // pointerId -> {x, y}（client 坐标）
 let pinch = null;
 
 mapEl.addEventListener("pointerdown", e=>{
   if(e.pointerType === "mouse" && e.button !== 0) return;
+  clearTextSelection();
   if(state.pick){
     if(activePointers.size === 0) handlePick(e);
     return;
@@ -148,6 +173,7 @@ mapEl.addEventListener("pointerdown", e=>{
   try{ mapEl.setPointerCapture(e.pointerId); }catch(_){}
 
   if(activePointers.size === 1){
+    lockPageSelection();
     state.drag = {x:e.clientX, y:e.clientY, vx:state.view.x, vy:state.view.y, moved:false};
     mapEl.classList.add("dragging");
   } else if(activePointers.size === 2){
@@ -215,6 +241,7 @@ function releasePointer(e){
     state.drag = null;
     pinch = null;
     mapEl.classList.remove("dragging");
+    unlockPageSelection();
   }
 }
 mapEl.addEventListener("pointerup", e=>releasePointer(e));

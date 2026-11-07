@@ -4,6 +4,11 @@
     radial-gradient(circle at 1px 1px, #dfe4ea 1px, transparent 0) 0 0/22px 22px,
     #eef1f4}
 #map{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+/* 地图是画布式交互区：SVG 房间标注默认可被选中，点击/拖拽/双击会拉起原生选区。
+   这里连同浮层（楼层标题、图例、比例尺）一起去掉可选中性，鼠标交互只走地图逻辑。 */
+.map-wrap,.map-wrap *{-webkit-user-select:none;-moz-user-select:none;user-select:none}
+/* 拖拽地图期间锁定整页选区：指针移出地图后也不会把侧栏文字带入选区 */
+body.map-dragging,body.map-dragging *{-webkit-user-select:none;-moz-user-select:none;user-select:none}
 #floorLayer path{vector-effect:non-scaling-stroke}
 #map.picking{cursor:crosshair}
 #map.dragging{cursor:grabbing}
