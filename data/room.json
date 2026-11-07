@@ -124,6 +124,6 @@
     { "room_number": "F403", "name": "跆拳道室", "category": "功能室" },
     { "room_number": "F404", "name": "形体室", "category": "功能室" },
     { "room_number": "I0101", "name": "宿舍管理办公室", "category": "办公室" },
-    { "room_number": "I0102", "name": "洗衣房", "category": "功能室" },
+    { "room_number": "I0102", "name": "洗衣房", "category": "功能室" }
   ]
 }
