@@ -1,5 +1,15 @@
 # 变更记录
 
+## v2.12 — 2026-11-07
+
+### 「使用电梯」改为「使用教学楼电梯」
+
+- 开关收窄为只控制教学楼电梯：此前关闭时会屏蔽全部电梯边，实际只有教学楼电梯禁止学生使用，现在仅屏蔽 `building = 教学楼` 的电梯边，宿舍、行政楼、文体楼等其他楼栋电梯始终可用。
+- 命名统一：状态字段 `state.useLift` → `state.useTeachingLift`，`dijkstra()` 形参同步更名；DOM 标识 `liftToggle` → `teachingLiftToggle`。
+- 新增持久化：开关状态写入 `localStorage["sms.teachingLift"]`，默认关闭；启动时读取并同步按钮 `on` 类与 `aria-checked`。
+- 文案更新：标签「使用教学楼电梯」、副标题「学生请走楼梯；其他楼栋电梯不受此开关影响」、无路线提示「…可尝试开启教学楼电梯」、脚注补充电梯折算。
+- 涉及文件：`src/index.html`、`src/js/00-data.js`、`src/js/30-router.js`、`src/js/70-app.js`、`docs/ARCHITECTURE.md`、`README.md`。
+
 ## v2.11.1 — 2026-11-07
 
 ### 修复点击/拖拽地图时页面文字被选中

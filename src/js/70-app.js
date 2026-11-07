@@ -9,13 +9,13 @@ function computeRoute(){
     toast("起点和终点相同，请更换其中一个");
     return;
   }
-  const res = dijkstra(state.start.i, state.end.i, state.useLift);
+  const res = dijkstra(state.start.i, state.end.i, state.useTeachingLift);
   if(!res){
     state.route = null;
     renderSummary(); renderSteps(); renderRoute(); updateRailDots();
     noRouteEl.classList.add("show");
     setTimeout(()=>noRouteEl.classList.remove("show"), 3200);
-    toast(state.useLift ? "两地之间暂无可达路线" : "楼梯方案不可达，可尝试开启电梯");
+    toast(state.useTeachingLift ? "两地之间暂无可达路线" : "楼梯方案不可达，可尝试开启教学楼电梯");
     return;
   }
   state.route = buildRoute(res, state.start, state.end);
@@ -89,6 +89,30 @@ function handlePick(e){
   computeRoute();
 }
 
+/* ============================== 教学楼电梯偏好 ============================== */
+// 只控制教学楼电梯；宿舍、行政楼、文体楼等其他楼栋电梯不受影响
+const TEACHING_LIFT_KEY = "sms.teachingLift";
+
+function loadTeachingLiftPref(){
+  try{ return localStorage.getItem(TEACHING_LIFT_KEY) === "1"; }catch(_){ return false; }
+}
+function saveTeachingLiftPref(on){
+  try{ localStorage.setItem(TEACHING_LIFT_KEY, on ? "1" : "0"); }catch(_){}
+}
+function applyTeachingLiftToggle(){
+  const t = $("teachingLiftToggle");
+  if(!t) return;
+  t.classList.toggle("on", state.useTeachingLift);
+  t.setAttribute("aria-checked", String(state.useTeachingLift));
+}
+function setTeachingLift(on){
+  state.useTeachingLift = !!on;
+  applyTeachingLiftToggle();
+  saveTeachingLiftPref(state.useTeachingLift);
+  // 之前算不出路线时也要重算，否则开关切换后界面不会刷新
+  if(state.start && state.end) computeRoute();
+}
+
 /* ============================== 事件绑定 ============================== */
 $("pickStart").addEventListener("click", ()=>setPick(state.pick === "start" ? null : "start"));
 $("pickEnd").addEventListener("click", ()=>setPick(state.pick === "end" ? null : "end"));
@@ -104,13 +128,7 @@ $("zoomOut").addEventListener("click", ()=>zoomAt(1/1.35));
 $("zoomFit").addEventListener("click", ()=>fitRoute());
 $("fitFloor").addEventListener("click", ()=>fitFloor());
 $("fitRoute").addEventListener("click", ()=>fitRoute());
-$("liftToggle").addEventListener("click", ()=>{
-  state.useLift = !state.useLift;
-  const t = $("liftToggle");
-  t.classList.toggle("on", state.useLift);
-  t.setAttribute("aria-checked", String(state.useLift));
-  if(state.route) computeRoute();
-});
+$("teachingLiftToggle").addEventListener("click", ()=>setTeachingLift(!state.useTeachingLift));
 
 document.getElementById("quick").addEventListener("click", e=>{
   const btn = e.target.closest(".chip");
@@ -145,6 +163,8 @@ function findPoi(name, floor){
 }
 
 function init(){
+  state.useTeachingLift = loadTeachingLiftPref();
+  applyTeachingLiftToggle();
   setupInput(startInput, "start");
   setupInput(endInput, "end");
   initCompass();

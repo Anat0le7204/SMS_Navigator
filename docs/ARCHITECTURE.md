@@ -64,7 +64,7 @@ data/map-data.json
   route,            // buildRoute 的结果（含 steps）
   activeStep,       // 普通模式选中的步骤
   pick,             // 地图点选模式：'start' | 'end' | null
-  useLift,          // 是否允许电梯
+  useTeachingLift,  // 是否允许使用教学楼电梯（其他楼栋电梯不受限）
   nav: { active, index }, // 导航模式
   compass: { state, enabled, heading, rot, ... } // 指南针
 }

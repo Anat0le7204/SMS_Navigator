@@ -5,6 +5,13 @@ const FLOOR_INDEX = new Map(FLOORS.map((f,i)=>[f.id,i]));
 const FLOOR_BY_ID = new Map(FLOORS.map(f=>[f.id,f]));
 const NODES = DATA.nodes;                 // [x,y,floorIdx,code,name,building]
 const N = NODES.length;
+// 只有教学楼电梯对学生限制使用；开关关闭时仅屏蔽这类电梯边，其他楼栋电梯照常可用
+const TEACHING_BUILDING = "教学楼";
+const IS_TEACHING_LIFT = new Uint8Array(N);
+for(let i=0;i<N;i++){
+  const n = NODES[i];
+  IS_TEACHING_LIFT[i] = n[3] === "lifts" && n[5] === TEACHING_BUILDING ? 1 : 0;
+}
 const EDGES = DATA.edges;                 // [a,b,w,kind] kind:0 walk 1 stair 2 lift 3 entry
 const POIS = DATA.pois.map(p=>({...p, key:p.n.toLowerCase()}));
 const LEVEL = new Map(FLOORS.map(f=>[f.id,f.level]));
@@ -26,7 +33,7 @@ const state = {
   route: null,
   activeStep: -1,
   pick: null,
-  useLift: false,
+  useTeachingLift: false,   // 是否允许使用教学楼电梯（其他楼栋电梯不受限）
   drag: null,
   hover: null,
   nav: { active: false, index: 0 },

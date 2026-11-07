@@ -1,5 +1,5 @@
 /* ============================== 路径规划 ============================== */
-function dijkstra(startIdx, endIdx, useLift){
+function dijkstra(startIdx, endIdx, useTeachingLift){
   const dist = new Float64Array(N).fill(Infinity);
   const prev = new Int32Array(N).fill(-1);
   const prevKind = new Uint8Array(N);
@@ -13,7 +13,8 @@ function dijkstra(startIdx, endIdx, useLift){
     done[u] = 1;
     if(u === endIdx) break;
     for(const [v,w,k] of ADJ[u]){
-      if(k === 2 && !useLift) continue;
+      // 关闭「使用教学楼电梯」时只屏蔽教学楼电梯边，其他楼栋电梯保持可用
+      if(k === 2 && !useTeachingLift && (IS_TEACHING_LIFT[u] || IS_TEACHING_LIFT[v])) continue;
       const nd = du + w;
       if(nd < dist[v] - 1e-9){
         dist[v] = nd; prev[v] = u; prevKind[v] = k;
