@@ -5,12 +5,12 @@
 **单文件、纯离线的校园室内导航应用** —— 搜索教室或班级，按楼层给出分步步行指引，手机上支持指南针朝向旋转。
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-在线体验-2ea44f?logo=githubpages)](https://zhangdongzai.github.io/SMS_Navigator/)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-在线体验-2ea44f?logo=githubpages)](https://anat0le7204.github.io/SMS_Navigator/)
 [![Single File](https://img.shields.io/badge/单文件-离线可用-success.svg)](#快速开始)
 [![Zero Dependency](https://img.shields.io/badge/依赖-零依赖-important.svg)](#为什么是单文件)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[在线体验](https://zhangdongzai.github.io/SMS_Navigator/) · [快速开始](#快速开始) · [使用说明](#使用说明) · [开发](#开发与构建) · [文档](#文档) · [反馈问题](https://github.com/ZhangDongzai/SMS_Navigator/issues) · [变更记录](docs/CHANGELOG.md)
+[在线体验](https://anat0le7204.github.io/SMS_Navigator/) · [快速开始](#快速开始) · [使用说明](#使用说明) · [开发](#开发与构建) · [文档](#文档) · [反馈问题](https://github.com/Anat0le7204/SMS_Navigator/issues) · [变更记录](docs/CHANGELOG.md)
 
 </div>
 
@@ -55,12 +55,12 @@
 
 打开 GitHub Pages 部署站点（无需安装任何东西）：
 
-**https://zhangdongzai.github.io/SMS_Navigator/**
+**https://anat0le7204.github.io/SMS_Navigator/**
 
 ### 方式二：直接打开单文件
 
 ```bash
-git clone https://github.com/ZhangDongzai/SMS_Navigator.git
+git clone https://github.com/Anat0le7204/SMS_Navigator.git
 # 双击根目录的 index.html 即可使用
 ```
 
@@ -177,7 +177,7 @@ python scripts/check_rooms.py  # 校验 data/room.json（字段/分类/可定位
 校内使用场景大量是离线拷贝、双击打开。单文件避免了静态服务器、跨域、资源路径等问题，且构建只做“内联”不改运行时行为。见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 第 8 节。
 
 **Q：导航中地图旋转卡顿或闪？**  
-已在 v2.2.1 修复（滤镜离屏表面重建导致）。如仍遇到，可用 `?perf=1` 探针测量并附数据提 [Issue](https://github.com/ZhangDongzai/SMS_Navigator/issues)。
+已在 v2.2.1 修复（滤镜离屏表面重建导致）。如仍遇到，可用 `?perf=1` 探针测量并附数据提 [Issue](https://github.com/Anat0le7204/SMS_Navigator/issues)。
 
 ## 数据来源与限制
 

@@ -4,7 +4,7 @@
 
 ## 如何贡献
 
-1. **反馈问题**：搜索 [已有 Issue](https://github.com/ZhangDongzai/SMS_Navigator/issues)，确认是新问题后[新建 Issue](https://github.com/ZhangDongzai/SMS_Navigator/issues/new)，写清复现步骤与期望行为。
+1. **反馈问题**：搜索 [已有 Issue](https://github.com/Anat0le7204/SMS_Navigator/issues)，确认是新问题后[新建 Issue](https://github.com/Anat0le7204/SMS_Navigator/issues/new)，写清复现步骤与期望行为。
 2. **提交改动**：Fork → 建分支（`git checkout -b fix/xxx`）→ 改动 → 自测 → 提 PR。描述里说明「改了什么、为什么、如何验证」。
 3. **补充数据**：房间/教室信息更新请改 `data/room.json`；地图几何问题请附截图与房间编号。
 
