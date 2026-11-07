@@ -6,6 +6,8 @@ const navText = $("navText"), navMeta = $("navMeta"), navArrow = $("navArrow"),
       navThumbMap = $("navThumbMap"), navThumbCap = $("navThumbCap"),
       navPrev = $("navPrev"), navNext = $("navNext");
 
+let navFromPreview = false;   // 本次导航是否由手机端路线预览进入
+
 function navInsets(){
   const mobile = containerSize().w < 980;
   return mobile ? {L:16,R:16,T:140,B:255} : {L:30,R:30,T:150,B:245};
@@ -161,6 +163,9 @@ function renderNav(){
 
 function startNavigation(){
   if(!state.route) return;
+  // 从手机端路线预览进入导航，结束后回到预览而不是搜索面板
+  navFromPreview = state.preview.open;
+  if(state.preview.open) closePreview(true);
   state.nav.active = true;
   state.nav.index = 0;
   state.activeStep = 0;
@@ -176,6 +181,8 @@ function startNavigation(){
 }
 
 function exitNavigation(silent){
+  const fromPreview = navFromPreview;
+  navFromPreview = false;
   state.nav.active = false;
   document.body.classList.remove("navigating");
   navLayer.classList.remove("show");
@@ -186,9 +193,13 @@ function exitNavigation(silent){
   if(!silent){
     state.activeStep = -1;
     renderSteps();
-    fitRoute();
     updateRailDots();
     updateFloorHeader();
+    if(fromPreview && isPhoneLayout() && state.route){
+      openPreview({fit:true});
+    } else {
+      fitRoute();
+    }
   }
 }
 

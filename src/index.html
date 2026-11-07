@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="styles/panel.css">
 <link rel="stylesheet" href="styles/map.css">
 <link rel="stylesheet" href="styles/navigation.css">
+<link rel="stylesheet" href="styles/mobile-preview.css">
 </head>
 <body>
 <div class="app">
@@ -186,6 +187,59 @@
   </div>
 </div>
 
+<!-- 移动端路线预览：全屏地图 + 顶部起终点 + 底部可折叠路线卡 -->
+<section class="m-preview" id="mPreview" aria-label="路线预览" aria-hidden="true">
+  <div class="m-top" id="mTop">
+    <button class="m-icon" id="mBack" type="button" aria-label="返回搜索">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M15 18l-6-6 6-6"/>
+      </svg>
+    </button>
+    <div class="m-ends">
+      <button class="m-end" id="mStartRow" type="button" aria-label="修改起点">
+        <i class="s"></i><b id="mStartName">起点</b>
+      </button>
+      <button class="m-end" id="mEndRow" type="button" aria-label="修改终点">
+        <i class="e"></i><b id="mEndName">终点</b>
+      </button>
+    </div>
+    <button class="m-icon" id="mSwap" type="button" aria-label="交换起点与终点" title="交换起点与终点">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M7 20V5M7 5L4 8M7 5l3 3M17 4v15M17 19l3-3M17 19l-3-3"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="m-sheet" id="mSheet">
+    <div class="m-peek" id="mPeek">
+      <button class="m-grab" id="mGrab" type="button" aria-label="展开路线详情" aria-expanded="false" aria-controls="mDetail"><i></i></button>
+      <div class="m-sum" id="mSum"></div>
+      <div class="m-actions">
+        <button class="m-detail-btn" id="mDetailBtn" type="button" aria-expanded="false" aria-controls="mDetail">
+          <span>路线详情</span><b id="mStepCount">0 步</b>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 15l6-6 6 6"/>
+          </svg>
+        </button>
+        <button class="m-start-btn" id="mStartNav" type="button">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.54.84l10-6.5a1 1 0 0 0 0-1.68l-10-6.5A1 1 0 0 0 8 5.5z"/></svg>
+          开始导航
+        </button>
+      </div>
+    </div>
+    <div class="m-detail" id="mDetail">
+      <div class="m-detail-head">
+        <b>路线详情</b><span id="mDetailMeta"></span>
+        <button class="m-collapse" id="mCollapse" type="button">
+          收起
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      </div>
+      <div class="m-steps" id="mSteps"></div>
+    </div>
+  </div>
+</section>
+
 <script src="../data/map-data.js" data-map-data></script>
 <script src="../data/room.js" data-room-data></script>
 <script src="js/00-data.js"></script>
@@ -196,6 +250,7 @@
 <script src="js/30-router.js"></script>
 <script src="js/40-route-render.js"></script>
 <script src="js/50-ui.js"></script>
+<script src="js/55-preview.js"></script>
 <script src="js/60-navigation.js"></script>
 <script src="js/70-app.js"></script>
 </body>

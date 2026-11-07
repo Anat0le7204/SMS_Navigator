@@ -36,6 +36,7 @@ function fitBounds(b, padding=54, maxScale=8, insets=null){
   let L,R,T,B;
   if(insets){ ({L,R,T,B} = insets); }
   else if(state.nav.active){ L = 30; R = 30; T = mobile ? 140 : 150; B = mobile ? 255 : 245; }
+  else if(state.preview.open && typeof previewInsets === "function"){ ({L,R,T,B} = previewInsets()); }
   else { L = mobile ? 16 : 76; R = mobile ? 16 : 34; T = mobile ? 112 : 64; B = mobile ? 24 : 34; }
   const availW = Math.max(120, w-L-R), availH = Math.max(120, h-T-B);
   const bw = Math.max(1,b[2]-b[0]), bh = Math.max(1,b[3]-b[1]);
@@ -60,17 +61,24 @@ function fitFloor(id=state.floor){
   if(f) fitBounds(f.bounds, 54, 8);
 }
 
-function fitRoute(){
-  if(!state.route){ fitFloor(); return; }
-  const b = routeBounds();
-  if(!b){ fitFloor(); return; }
+function fitBoxToView(b, insets){
   const {w,h} = containerSize();
-  const aspect = Math.max(0.8, (w-110)/(h-98));
+  // 有 insets 时取景只使用顶部/底部卡片之间的可视区域
+  const availW = Math.max(160, w - (insets ? insets.L + insets.R : 110));
+  const availH = Math.max(160, h - (insets ? insets.T + insets.B : 98));
+  const aspect = Math.max(0.8, availW/availH);
   let [x0,y0,x1,y1] = b;
   const bw = x1-x0, bh = y1-y0;
   if(bw/bh < aspect){ const c=(x0+x1)/2, nw=bh*aspect; x0=c-nw/2; x1=c+nw/2; }
   else { const c=(y0+y1)/2, nh=bw/aspect; y0=c-nh/2; y1=c+nh/2; }
-  fitBounds([x0,y0,x1,y1], 74, 8);
+  fitBounds([x0,y0,x1,y1], insets ? 18 : 74, 8, insets || null);
+}
+
+function fitRoute(insets){
+  if(!state.route){ fitFloor(); return; }
+  const b = routeBounds();
+  if(!b){ fitFloor(); return; }
+  fitBoxToView(b, insets);
 }
 
 function routeBounds(){

@@ -17,42 +17,63 @@ function floorBuildings(f){
   return arr.slice(0,3).join(" · ");
 }
 
+/* 距离 / 时长 / 概览标签由桌面摘要与移动端预览共用，避免两处估算不一致 */
+function routeMinutes(r){
+  const verticals = r.steps.filter(x=>x.type === "vertical");
+  return Math.max(1, Math.round((r.distance/1.25 + r.stairs*8 + r.lifts*30 + verticals.length*10)/60));
+}
+function routeDistance(r){
+  const isKm = r.distance >= 1000;
+  return {
+    isKm,
+    num: isKm ? (r.distance/1000).toFixed(1) : String(Math.round(r.distance)),
+    unit: isKm ? "公里" : "米"
+  };
+}
+function routeMetaItems(r){
+  const verticals = r.steps.filter(x=>x.type === "vertical");
+  const levels = r.floors.map(fid=>LEVEL.get(fid) || 0);
+  const depth = Math.max(...levels) - Math.min(...levels);
+  const entries = r.steps.filter(x=>x.type === "entry").length;
+  const meta = [];
+  if(verticals.length === 0){
+    meta.push(entries ? "室外路段" : "同层步行");
+  } else {
+    if(depth > 0) meta.push(`跨 ${depth % 1 ? depth.toFixed(1) : depth} 层`);
+    meta.push(`换层 ${verticals.length} 次`);
+  }
+  if(entries) meta.push(`出入 ${entries} 次`);
+  if(r.stairs) meta.push(`楼梯 ${r.stairs} 次`);
+  if(r.lifts) meta.push(`电梯 ${r.lifts} 次`);
+  return meta;
+}
+
 function renderSummary(){
   if(!state.route){ summaryEl.classList.remove("show"); return; }
   const r = state.route;
-  const verticals = r.steps.filter(x=>x.type === "vertical");
-  const minutes = Math.max(1, Math.round((r.distance/1.25 + r.stairs*8 + r.lifts*30 + verticals.length*10)/60));
+  const minutes = routeMinutes(r);
   const shownFloors = r.floors.length > 5 ? [r.floors[0], null, r.floors[r.floors.length-1]] : r.floors;
   const floorBadges = shownFloors.map(fid=>{
     if(!fid) return `<span class="arr">…</span>`;
     const f = FLOOR_BY_ID.get(fid);
     return `<span class="fbadge">${esc(f.name)}</span>`;
   }).join('<span class="arr">›</span>');
-  const levels = r.floors.map(fid=>LEVEL.get(fid) || 0);
-  const depth = Math.max(...levels) - Math.min(...levels);
-  const entries = r.steps.filter(x=>x.type === "entry").length;
-  const meta = [];
-  if(verticals.length === 0){
-    meta.push(`<span>${entries ? "室外路段" : "同层步行"}</span>`);
-  } else {
-    if(depth > 0) meta.push(`<span>跨 ${depth % 1 ? depth.toFixed(1) : depth} 层</span>`);
-    meta.push(`<span>换层 ${verticals.length} 次</span>`);
-  }
-  if(entries) meta.push(`<span>出入 ${entries} 次</span>`);
-  if(r.stairs) meta.push(`<span>楼梯 ${r.stairs} 次</span>`);
-  if(r.lifts) meta.push(`<span>电梯 ${r.lifts} 次</span>`);
-  const isKm = r.distance >= 1000;
-  const num = isKm ? (r.distance/1000).toFixed(1) : String(Math.round(r.distance));
+  const meta = routeMetaItems(r);
+  const d = routeDistance(r);
   summaryEl.innerHTML = `
     <div class="sum-top">
-      <div class="sum-num">${num}<small>${isKm ? "公里" : "米"}</small></div>
+      <div class="sum-num">${d.num}<small>${d.unit}</small></div>
       <div class="sum-time">约 ${minutes} 分钟</div>
     </div>
-    <div class="sum-meta">${meta.join("")}</div>
+    <div class="sum-meta">${meta.map(x=>`<span>${esc(x)}</span>`).join("")}</div>
     <div class="sum-route">${floorBadges}</div>
     <button class="start-nav" data-start-nav>
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.54.84l10-6.5a1 1 0 0 0 0-1.68l-10-6.5A1 1 0 0 0 8 5.5z"/></svg>
       开始导航
+    </button>
+    <button class="sum-detail" data-open-preview type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M8 12h8M8 9h5M8 15h4"/></svg>
+      查看路线预览
     </button>`;
   summaryEl.classList.add("show");
 }
@@ -91,8 +112,10 @@ function focusStep(i, opts){
   const st = state.route.steps[i];
   if(!st) return;
   const navMode = !!(opts && opts.nav) || state.nav.active;
+  // 手机端路线预览：点步骤也要把该段移到可视区（抽屉上方），而不是只在同层时高亮
+  const previewMode = state.preview.open && !navMode;
   state.activeStep = i;
-  if(navMode || state.floor !== st.floor){
+  if(navMode || previewMode || state.floor !== st.floor){
     const floorChanged = state.floor !== st.floor;
     state.floor = st.floor;
     if(floorChanged){
@@ -101,6 +124,8 @@ function focusStep(i, opts){
     }
     if(navMode){
       fitStepNav(st);
+    } else if(previewMode){
+      fitStepPreview(st);
     } else if(st.pts && st.pts.length){
       const xs = st.pts.map(p=>p[0]), ys = st.pts.map(p=>p[1]);
       let b = [Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)];
@@ -114,14 +139,16 @@ function focusStep(i, opts){
   } else {
     renderActiveStep();
   }
-  if(navMode) renderActiveStep();
+  if(navMode || previewMode) renderActiveStep();
   if(navMode){
     renderNav();
   } else {
     renderSteps();
+    // 预览态下面板是 display:none，滚动它没有意义，也会把页面带跑
     const activeBtn = stepsEl.querySelector(".step.active");
-    if(activeBtn) activeBtn.scrollIntoView({block:"nearest", behavior:"smooth"});
+    if(activeBtn && !state.preview.open) activeBtn.scrollIntoView({block:"nearest", behavior:"smooth"});
   }
+  updateMobileActiveStep();
   updateRailDots();
   updateFloorHeader();
 }
@@ -142,8 +169,14 @@ function renderRail(){
       state.floor = fid;
       state.activeStep = -1;
       renderFloor(); renderRoute(); renderRail(); updateFloorHeader();
-      fitFloor();
+      // 预览态下切换楼层：优先把该层的路线段放进可视区，而不是整层平面
+      if(state.preview.open && state.route && state.route.floors.includes(fid)){
+        fitRouteOnFloor(fid, previewInsets());
+      } else {
+        fitFloor();
+      }
       renderSteps();
+      updateMobileActiveStep();
     });
     railEl.appendChild(b);
     if(fid === "L1") {
@@ -160,8 +193,13 @@ function updateRailDots(){
     const fid = b.dataset.f;
     b.classList.toggle("active", fid === state.floor);
     b.classList.toggle("on-route", routeFloors.has(fid));
-    if(b.classList.contains("active") && window.innerWidth < 980){
-      railEl.scrollLeft = b.offsetLeft - railEl.clientWidth/2 + b.offsetWidth/2;
+    if(b.classList.contains("active")){
+      // 横屏预览时楼层栏竖排，需要按纵向把当前层滚进视野
+      if(state.preview.open && railEl.offsetWidth < 140){
+        railEl.scrollTop = b.offsetTop - railEl.clientHeight/2 + b.offsetHeight/2;
+      } else if(window.innerWidth < 980){
+        railEl.scrollLeft = b.offsetLeft - railEl.clientWidth/2 + b.offsetWidth/2;
+      }
     }
   });
 }
@@ -275,7 +313,7 @@ function choosePoi(p){
     state.end = p; endInput.value = val;
   }
   suggestEl.classList.remove("show");
-  computeRoute();
+  computeRoute({preview:true});
 }
 
 function onInput(e, field){

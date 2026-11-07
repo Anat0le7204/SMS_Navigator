@@ -12,17 +12,19 @@
 6. [构建与作用域约定](#6-构建与作用域约定)
 7. [指南针与地图旋转](#7-指南针与地图旋转)
 8. [为什么仍然产出单文件](#8-为什么仍然产出单文件)
+9. [手机端路线预览](#9-手机端路线预览)
 
 ## 1. 总体结构
 
-应用是纯前端、零依赖的原生 JavaScript + SVG。源码按职责拆分为 10 个脚本和 4 个样式文件，构建时按顺序拼接为一个 IIFE，并内联数据与图片，产出单文件 `index.html`。
+应用是纯前端、零依赖的原生 JavaScript + SVG。源码按职责拆分为 11 个脚本和 5 个样式文件，构建时按顺序拼接为一个 IIFE，并内联数据与图片，产出单文件 `index.html`。
 
 ```
 index.html
  ├─ styles/base.css          变量、重置、品牌区
  ├─ styles/panel.css         左侧规划面板、摘要、步骤列表
  ├─ styles/map.css           地图、楼层栏、图例、路线、缩放
- └─ styles/navigation.css    导航模式（顶部指令条 + 底部路段卡）
+ ├─ styles/navigation.css    导航模式（顶部指令条 + 底部路段卡）
+ └─ styles/mobile-preview.css 手机端路线预览（顶部起终点条 + 底部抽屉）
 
 js/00-data.js               数据解析、全局状态、DOM 引用、图标、toast
 js/05-rooms.js              房间目录索引：按名称/编号匹配 POI、分类展示
@@ -32,6 +34,7 @@ js/20-view.js               视口变换、缩放/平移、取景、比例尺
 js/30-router.js             Dijkstra、分步指引生成、跨层步骤
 js/40-route-render.js       路线折线、起终点/换层标记、当前步高亮
 js/50-ui.js                 摘要、步骤列表、楼层栏、搜索、聚焦步骤
+js/55-preview.js            手机端路线预览、抽屉展开/收起、楼层取景
 js/60-navigation.js         导航模式、路段缩略图、上一步/下一步
 js/70-app.js                计算路线、地图点选、事件绑定、初始化
 ```
@@ -49,6 +52,7 @@ data/map-data.json
       ├─ 30-router.js     输入起点/终点 → Dijkstra → buildRoute → steps
       ├─ 40-route-render.js 把 path 按楼层切段画到 routeLayer
       ├─ 50-ui.js         摘要卡、步骤列表、搜索、楼层栏
+      ├─ 55-preview.js    手机端路线预览、抽屉、预览取景
       └─ 60-navigation.js 以 steps 为单位逐条播放
 ```
 
@@ -66,6 +70,7 @@ data/map-data.json
   pick,             // 地图点选模式：'start' | 'end' | null
   useTeachingLift,  // 是否允许使用教学楼电梯（其他楼栋电梯不受限）
   nav: { active, index }, // 导航模式
+  preview: { open, expanded }, // 手机端路线预览：显示中 / 步骤抽屉展开
   compass: { state, enabled, heading, rot, ... } // 指南针
 }
 ```
@@ -130,3 +135,22 @@ planning ──[开始导航]──▶ navigating ──[上一步/下一步]─
 ## 8. 为什么仍然产出单文件
 
 校内使用场景经常是离线、拷贝、双击打开。单文件产物避免了静态服务器、跨域 fetch、图片路径等问题；多文件源码只服务于开发维护。构建脚本只做“内联”，不改变运行时行为。
+
+## 9. 手机端路线预览
+
+窄屏（`max-width:760px`，或高度 ≤520px 的横屏设备）在算路完成后进入预览形态，桌面端不启用。
+
+```
+body.m-previewing
+ ├─ 地图（fixed 全屏）
+ ├─ .m-top     返回 / 起点 / 终点 / 交换
+ └─ .m-sheet   整屏高的底部抽屉
+     ├─ .m-peek   常驻：距离、时长、起终点与楼层、概览标签、开始导航
+     └─ .m-detail 展开：按楼层分组的分步指引
+```
+
+- 抽屉折叠时用 `transform: translateY(calc(100% - var(--m-peek)))` 只露出 `.m-peek`；`--m-peek` 由 `measurePeek()` 实测内容高度写入 `body`，避免不同字号或换行导致露出不全。
+- 展开 / 收起由按钮、`mGrab` 拖拽（Pointer Events + `touch-action:none`）或点击步骤触发；`.m-detail` 折叠时 `visibility:hidden`，不会进入 Tab 序。
+- 概览的距离 / 时长 / 标签由 `routeDistance()`、`routeMinutes()`、`routeMetaItems()` 生成，与桌面摘要共用，避免两套估算。
+- 取景：`previewInsets()` 返回顶部起终点条、楼层栏、底部抽屉占用的像素；`fitRouteOnFloor()` 只取当前楼层的路线段包围盒（各层共用平面坐标，跨层合并会把当前层路线挤扁），`fitStepPreview()` 在点步骤时聚焦单段。`fitBounds()` 在预览态默认使用这些留白。
+- 进入 / 退出：手机端 `computeRoute()` 成功后自动 `openPreview()`；返回键 `closePreview()` 回到规划面板，摘要卡的「查看路线预览」可再次进入。开始导航先收起预览，`navFromPreview` 记录来源，结束导航后回到预览。跨断点缩放时自动进入 / 退出预览并重新取景。

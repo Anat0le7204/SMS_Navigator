@@ -37,6 +37,8 @@ const state = {
   drag: null,
   hover: null,
   nav: { active: false, index: 0 },
+  // 手机端路线预览：open = 预览层显示中，expanded = 步骤抽屉展开
+  preview: { open: false, expanded: false },
   compass: {
     state: "checking",     // checking | prompt | supported | unsupported | denied
     reason: "",

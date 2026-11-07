@@ -68,6 +68,16 @@
 .start-nav svg{width:16px;height:16px}
 .start-nav:active{transform:translateY(0)}
 
+/* 手机端：从规划面板重新进入路线预览 */
+.sum-detail{display:none}
+@media (max-width:760px), (max-height:520px) and (max-width:1000px){
+  .sum-detail{display:flex;align-items:center;justify-content:center;gap:5px;width:100%;height:34px;
+    margin-top:5px;border:0;border-radius:9px;background:none;color:#0f5f58;font-size:12px;
+    font-weight:650;cursor:pointer}
+  .sum-detail:active{background:#eef8f5}
+  .sum-detail svg{width:14px;height:14px;opacity:.85}
+}
+
 .steps{flex:1;min-height:0;overflow-y:auto;padding:16px 14px 18px 22px;scrollbar-width:thin}
 .steps::-webkit-scrollbar{width:8px}
 .steps::-webkit-scrollbar-thumb{background:#e1e5ea;border-radius:8px}

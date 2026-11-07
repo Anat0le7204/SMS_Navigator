@@ -1,10 +1,17 @@
 /* ============================== 计算路线 ============================== */
-function computeRoute(){
+function computeRoute(opts){
+  opts = opts || {};
   noRouteEl.classList.remove("show");
   if(state.nav.active) exitNavigation(true);
-  if(!state.start || !state.end){ state.route = null; state.activeStep = -1; renderSummary(); renderSteps(); renderRoute(); renderRail(); updateFloorHeader(); return; }
+  const wasPreview = state.preview.open;
+  if(!state.start || !state.end){
+    state.route = null; state.activeStep = -1;
+    closePreview(true);
+    renderSummary(); renderSteps(); renderRoute(); renderRail(); updateFloorHeader(); return;
+  }
   if(state.start.i === state.end.i){
     state.route = null; state.activeStep = -1;
+    closePreview(true);
     renderSummary(); renderSteps(); renderRoute(); updateRailDots(); updateFloorHeader();
     toast("起点和终点相同，请更换其中一个");
     return;
@@ -12,6 +19,7 @@ function computeRoute(){
   const res = dijkstra(state.start.i, state.end.i, state.useTeachingLift);
   if(!res){
     state.route = null;
+    closePreview(true);
     renderSummary(); renderSteps(); renderRoute(); updateRailDots();
     noRouteEl.classList.add("show");
     setTimeout(()=>noRouteEl.classList.remove("show"), 3200);
@@ -22,7 +30,12 @@ function computeRoute(){
   state.activeStep = -1;
   state.floor = state.route.floors[0];
   renderSummary(); renderSteps(); renderFloor(); renderRoute(); renderRail(); updateFloorHeader();
-  fitRoute();
+  // 手机端：算路完成后进入路线预览（已在预览中则保持；桌面端不启用）
+  if(isPhoneLayout() && (wasPreview || opts.preview)){
+    openPreview({fit:true});
+  } else {
+    fitRoute();
+  }
 }
 
 /* ============================== 地图点选 ============================== */
@@ -86,7 +99,7 @@ function handlePick(e){
   if(state.pick === "start"){ state.start = p; startInput.value = p.n; }
   else { state.end = p; endInput.value = p.n; }
   setPick(null);
-  computeRoute();
+  computeRoute({preview:true});
 }
 
 /* ============================== 教学楼电梯偏好 ============================== */
@@ -140,7 +153,7 @@ document.getElementById("quick").addEventListener("click", e=>{
   if(!state.start){ state.start = p; startInput.value = p.n; }
   else { state.end = p; endInput.value = p.n; }
   activeField = state.start ? "end" : "start";
-  computeRoute();
+  computeRoute({preview:true});
 });
 
 if(window.ResizeObserver){
@@ -201,7 +214,7 @@ function init(){
   if(pe){ const p = searchPois(pe, 1)[0]; if(p){ state.end = p; } }
   startInput.value = state.start ? state.start.n : "";
   endInput.value = state.end ? state.end.n : "";
-  if(state.start && state.end) computeRoute();
+  if(state.start && state.end) computeRoute({preview:true});
   // 调试：?nav=1 直接进入导航模式（便于自动化测试与真机截图）
   if(params.get("nav") === "1" && state.route) startNavigation();
 }
