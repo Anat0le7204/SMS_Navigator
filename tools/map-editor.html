@@ -18,10 +18,28 @@
   }
   /* ===== 工具栏 ===== */
   #toolbar {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
     padding: 6px 10px; background: var(--panel); border-bottom: 1px solid var(--border);
   }
+  /* 逻辑分组：换行时整组移动，避免「吸附网格」与网格间距被拆到两行 */
+  #toolbar .grp { display: inline-flex; align-items: center; gap: 6px; }
   #toolbar .sep { width: 1px; height: 22px; background: var(--border); margin: 0 2px; }
+  /* 图层下拉：宽度随内容撑开，避免父级 details 过窄导致标签逐字换行 */
+  #layerMenu { position: relative; }
+  #layerMenu > summary {
+    cursor: pointer; list-style: none; border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px; background: var(--panel2);
+  }
+  #layerMenu > summary::-webkit-details-marker { display: none; }
+  #layerMenu > summary:hover { border-color: var(--accent); }
+  #layerMenu > div {
+    position: absolute; top: 34px; left: 0; z-index: 30;
+    width: max-content; min-width: 132px;
+    background: var(--panel2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; display: flex; flex-direction: column; gap: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  #layerMenu label.chk { white-space: nowrap; }
   button, select {
     background: var(--panel2); color: var(--text); border: 1px solid var(--border);
     border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit;
@@ -35,22 +53,32 @@
     border-radius: 6px; padding: 4px 8px; font: inherit; width: 90px;
   }
   input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: var(--accent); }
-  #searchBox { width: 210px; }
+  #searchBox { width: 100%; }
   label.chk { display: inline-flex; align-items: center; gap: 4px; color: var(--text2); cursor: pointer; user-select: none; }
   label.chk input { accent-color: var(--accent); }
   /* 搜索下拉 */
-  #searchWrap { position: relative; }
+  #searchWrap { position: relative; flex: 1 1 180px; min-width: 132px; max-width: 210px; }
   #searchList {
-    position: absolute; top: 34px; left: 0; width: 300px; max-height: 320px; overflow: auto;
+    position: fixed; z-index: 60; display: none;
+    max-height: min(320px, 60vh); overflow: auto;
     background: var(--panel2); border: 1px solid var(--border); border-radius: 8px;
-    z-index: 40; display: none; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
   }
   #searchList .item { padding: 6px 10px; cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
   #searchList .item:hover { background: #2c3440; }
   #searchList .item .nm { color: var(--text); font-weight: 600; }
   #searchList .item .meta2 { color: var(--text2); font-size: 11px; }
+  /* 1440 及以下的笔记本宽度：收紧间距，让工具栏保持一行 */
+  @media (max-width: 1500px) {
+    #toolbar { gap: 6px; }
+    #toolbar .grp { gap: 5px; }
+    #toolbar .sep { margin: 0 1px; }
+    button, select { padding: 4px 9px; }
+    #searchWrap { flex: 1 1 170px; max-width: 176px; }
+  }
   /* ===== 主区 ===== */
-  #main { flex: 1; display: flex; min-height: 0; }
+  /* overflow:hidden 夹住窄屏时滑出画面的属性面板，避免横向滚动条 */
+  #main { flex: 1; display: flex; min-height: 0; position: relative; overflow: hidden; }
   #canvasWrap { flex: 1; position: relative; min-width: 0; }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
   #emptyHint {
@@ -91,7 +119,10 @@
   #floorRail {
     display: flex; gap: 4px; padding: 6px 10px; background: var(--panel);
     border-top: 1px solid var(--border); overflow-x: auto; align-items: center;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
   }
+  #floorRail::-webkit-scrollbar { height: 6px; }
+  #floorRail::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   .floorBtn {
     padding: 3px 10px; border-radius: 6px; border: 1px solid var(--border);
     background: var(--panel2); cursor: pointer; white-space: nowrap; font-size: 12px;
@@ -107,17 +138,31 @@
     overflow: hidden;
   }
   #status b { color: var(--text); font-weight: 600; }
+  /* 未保存提示固定在最右，窄屏被压缩时也不会被挤出可视区 */
+  #stDirty { margin-left: auto; flex: none; }
   .dirtyDot { color: var(--warn); }
   /* 窄屏：属性面板折叠为抽屉（§7） */
   #panelToggle { display: none; }
+  #panelClose { display: none; }
   @media (max-width: 900px) {
     #panel {
-      position: absolute; right: 0; top: 0; bottom: 0; z-index: 20;
+      position: absolute; right: 0; top: 0; bottom: 0; z-index: 20; width: min(330px, 88vw);
       transform: translateX(100%); transition: transform .18s ease;
       box-shadow: -8px 0 24px rgba(0,0,0,.4);
     }
     #panel.open { transform: translateX(0); }
     #panelToggle { display: inline-block; }
+    #panelClose {
+      display: inline-flex; align-items: center; justify-content: center;
+      position: absolute; top: 6px; right: 8px; width: 26px; height: 26px; padding: 0;
+      font-size: 16px; line-height: 1; color: var(--text2);
+      background: transparent; border-color: transparent;
+    }
+    #panelClose:hover { color: var(--text); border-color: var(--border); }
+  }
+  @media (max-width: 720px) {
+    #status { gap: 12px; }
+    #stCursor, #stHover { display: none; }
   }
   /* 模态 */
   #modalMask {
@@ -136,56 +181,69 @@
 <body>
 
 <header id="toolbar">
-  <button id="btnImport" class="primary">导入数据</button>
-  <button id="btnExport">导出数据</button>
-  <button id="btnValidate">校验</button>
-  <div class="sep"></div>
-  <button id="btnUndo" disabled>撤销</button>
-  <button id="btnRedo" disabled>重做</button>
-  <div class="sep"></div>
-  <select id="toolSel" title="工具模式">
-    <option value="select">选择 / 拖拽</option>
-    <option value="addNode">新增节点</option>
-    <option value="addEdge">连线（点两个节点）</option>
-    <option value="addPoi">新增兴趣点</option>
-    <option value="drawPoly">绘制多边形</option>
-    <option value="addLabel">新增标签</option>
-  </select>
-  <select id="polyTypeSel" title="多边形类型（绘制时使用）"></select>
-  <select id="edgeKindSel" title="边类型（连线时使用）">
-    <option value="0">步行</option>
-    <option value="1">楼梯</option>
-    <option value="2">电梯</option>
-    <option value="3">入口</option>
-  </select>
-  <div class="sep"></div>
-  <div id="searchWrap">
+  <div class="grp">
+    <button id="btnImport" class="primary">导入数据</button>
+    <button id="btnExport">导出数据</button>
+    <button id="btnValidate">校验</button>
+    <span class="sep"></span>
+  </div>
+  <div class="grp">
+    <button id="btnUndo" disabled>撤销</button>
+    <button id="btnRedo" disabled>重做</button>
+    <span class="sep"></span>
+  </div>
+  <div class="grp">
+    <select id="toolSel" title="工具模式">
+      <option value="select">选择 / 拖拽</option>
+      <option value="addNode">新增节点</option>
+      <option value="addEdge">连线（点两个节点）</option>
+      <option value="addPoi">新增兴趣点</option>
+      <option value="drawPoly">绘制多边形</option>
+      <option value="addLabel">新增标签</option>
+    </select>
+    <select id="polyTypeSel" title="多边形类型（绘制时使用）"></select>
+    <select id="edgeKindSel" title="边类型（连线时使用）">
+      <option value="0">步行</option>
+      <option value="1">楼梯</option>
+      <option value="2">电梯</option>
+      <option value="3">入口</option>
+    </select>
+    <span class="sep"></span>
+  </div>
+  <div id="searchWrap" class="grp">
     <input type="text" id="searchBox" placeholder="搜索兴趣点 / 节点 / 标签…" autocomplete="off">
     <div id="searchList"></div>
   </div>
-  <div class="sep"></div>
-  <label class="chk"><input type="checkbox" id="snapChk" checked>吸附网格</label>
-  <input type="number" id="gridSize" value="10" min="1" max="200" title="网格间距（地图单位）" style="width:60px">
-  <label class="chk"><input type="checkbox" id="refChk">参考其他层</label>
-  <div class="sep"></div>
-  <details id="layerMenu" style="position:relative">
-    <summary style="cursor:pointer;list-style:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;background:var(--panel2)">图层</summary>
-    <div style="position:absolute;top:32px;left:0;z-index:30;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;display:flex;flex-direction:column;gap:4px">
-      <label class="chk"><input type="checkbox" data-layer="poly" checked>多边形</label>
-      <label class="chk"><input type="checkbox" data-layer="label" checked>标签</label>
-      <label class="chk"><input type="checkbox" data-layer="node" checked>节点</label>
-      <label class="chk"><input type="checkbox" data-layer="edge" checked>边</label>
-      <label class="chk"><input type="checkbox" data-layer="poi" checked>兴趣点</label>
-      <label class="chk"><input type="checkbox" data-layer="grid">网格</label>
-    </div>
-  </details>
-  <button id="btnDelete" class="danger" title="删除选中实体（Delete 键）">删除</button>
-  <button id="panelToggle" title="显示/隐藏属性面板">面板</button>
-  <div class="sep"></div>
-  <button id="zoomIn">＋</button>
-  <button id="zoomOut">－</button>
-  <button id="zoomFit">适配</button>
-  <button id="zoomHome" title="回到原点">原点</button>
+  <div class="grp">
+    <label class="chk"><input type="checkbox" id="snapChk" checked>吸附网格</label>
+    <input type="number" id="gridSize" value="10" min="1" max="200" title="网格间距（地图单位）" style="width:60px">
+    <label class="chk"><input type="checkbox" id="refChk">参考其他层</label>
+    <span class="sep"></span>
+  </div>
+  <div class="grp">
+    <details id="layerMenu">
+      <summary>图层</summary>
+      <div>
+        <label class="chk"><input type="checkbox" data-layer="poly" checked>多边形</label>
+        <label class="chk"><input type="checkbox" data-layer="label" checked>标签</label>
+        <label class="chk"><input type="checkbox" data-layer="node" checked>节点</label>
+        <label class="chk"><input type="checkbox" data-layer="edge" checked>边</label>
+        <label class="chk"><input type="checkbox" data-layer="poi" checked>兴趣点</label>
+        <label class="chk"><input type="checkbox" data-layer="grid">网格</label>
+      </div>
+    </details>
+  </div>
+  <div class="grp">
+    <button id="btnDelete" class="danger" title="删除选中实体（Delete 键）">删除</button>
+    <button id="panelToggle" title="显示/隐藏属性面板">面板</button>
+    <span class="sep"></span>
+  </div>
+  <div class="grp">
+    <button id="zoomIn">＋</button>
+    <button id="zoomOut">－</button>
+    <button id="zoomFit">适配</button>
+    <button id="zoomHome" title="回到原点">原点</button>
+  </div>
 </header>
 
 <div id="main">
@@ -198,6 +256,7 @@
     </div>
   </div>
   <aside id="panel">
+    <button id="panelClose" title="关闭面板" aria-label="关闭面板">×</button>
     <h3>属性</h3>
     <div id="propPanel"><div class="empty">未选中实体。单击选择，按住 Shift 键可多选节点。</div></div>
     <h3>校验报告</h3>
@@ -1917,6 +1976,16 @@ function locateIssue(list, idx) {
 
 // ============================== 搜索 ==============================
 const searchList = $('searchList');
+// 下拉挂在视口上、紧贴工具栏底边：工具栏换行时不会盖住第二行按钮
+function showSearchList() {
+  const box = $('searchBox').getBoundingClientRect();
+  const tb = $('toolbar').getBoundingClientRect();
+  const w = Math.min(320, window.innerWidth - 24);
+  searchList.style.width = w + 'px';
+  searchList.style.left = Math.max(12, Math.min(box.left, window.innerWidth - w - 12)) + 'px';
+  searchList.style.top = Math.round(tb.bottom + 4) + 'px';
+  searchList.style.display = 'block';
+}
 $('searchBox').addEventListener('input', () => {
   const q = $('searchBox').value.trim().toLowerCase();
   if (!q || !state.data) { searchList.style.display = 'none'; return; }
@@ -1937,13 +2006,13 @@ $('searchBox').addEventListener('input', () => {
   });
   if (!items.length) {
     searchList.innerHTML = '<div class="item"><span class="meta2">无匹配结果</span></div>';
-    searchList.style.display = 'block';
+    showSearchList();
     return;
   }
   searchList.innerHTML = items.map((it, i) =>
     '<div class="item" data-i="' + i + '"><span class="nm">' + esc(it.name) + '</span><span class="meta2">' + it.kind + ' · ' + esc(it.meta) + '</span></div>'
   ).join('');
-  searchList.style.display = 'block';
+  showSearchList();
   searchList.querySelectorAll('.item').forEach(el => {
     el.onclick = () => {
       const it = items[Number(el.dataset.i)];
@@ -1972,6 +2041,8 @@ $('searchBox').addEventListener('input', () => {
 document.addEventListener('click', e => {
   if (!$('searchWrap').contains(e.target)) searchList.style.display = 'none';
 });
+// 视口变化后下拉的定位会失效，直接收起，避免停在错误位置
+window.addEventListener('resize', () => { searchList.style.display = 'none'; });
 
 // ============================== 楼层栏 ==============================
 function renderRail() {
@@ -2126,6 +2197,21 @@ $('layerMenu').querySelectorAll('[data-layer]').forEach(chk => {
 });
 $('btnDelete').onclick = deleteSelection;
 $('panelToggle').onclick = () => $('panel').classList.toggle('open');
+$('panelClose').onclick = () => $('panel').classList.remove('open');
+// 点击工具栏空白处或画布时收起图层菜单（details 默认只在点 summary 时开合）
+document.addEventListener('click', e => {
+  const menu = $('layerMenu');
+  if (menu.open && !menu.contains(e.target)) menu.open = false;
+});
+// 菜单靠近窗口右边缘时改为右对齐，避免被裁掉
+$('layerMenu').addEventListener('toggle', () => {
+  const menu = $('layerMenu'), box = menu.querySelector('div');
+  if (!menu.open) { box.style.left = ''; box.style.right = ''; return; }
+  box.style.left = '0'; box.style.right = 'auto';
+  if (box.getBoundingClientRect().right > window.innerWidth - 8) {
+    box.style.left = 'auto'; box.style.right = '0';
+  }
+});
 $('zoomIn').onclick = () => { state.view.s *= 1.25; render(); };
 $('zoomOut').onclick = () => { state.view.s /= 1.25; render(); };
 $('zoomFit').onclick = () => { fitView(); render(); };
@@ -2141,7 +2227,8 @@ $('polyTypeSel').innerHTML = POLY_TYPES.map(t => '<option value="' + t + '">' + 
 // ============================== 键盘 ==============================
 window.addEventListener('keydown', e => {
   const tag = e.target.tagName;
-  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  // Esc 在输入框 / 下拉框里也要能用（只负责收起浮层，不影响输入）
+  if ((tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') && e.key !== 'Escape') return;
   if (e.key === 'Delete' || e.key === 'Backspace') {
     const sel = state.sel;
     if (sel && sel.type === 'poly' && sel.vertex !== null && sel.vertex !== undefined) {
@@ -2162,7 +2249,10 @@ window.addEventListener('keydown', e => {
   } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
     redo(); e.preventDefault();
   } else if (e.key === 'Escape') {
-    if (state.drawPts) { state.drawPts = null; render(); }
+    if ($('layerMenu').open) { $('layerMenu').open = false; }
+    else if ($('panel').classList.contains('open')) { $('panel').classList.remove('open'); }
+    else if (searchList.style.display === 'block') { searchList.style.display = 'none'; $('searchBox').blur(); }
+    else if (state.drawPts) { state.drawPts = null; render(); }
     else if (state.addEdgeFrom !== null && state.addEdgeFrom !== undefined) { state.addEdgeFrom = null; render(); }
     else if (state.sel || state.multi) { state.sel = null; state.multi = null; renderPropPanel(); render(); }
   } else if (e.key === 'Enter') {

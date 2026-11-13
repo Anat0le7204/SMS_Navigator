@@ -10,8 +10,12 @@ import json
 import math
 import os
 import re
+import sys
 import urllib.request
 from collections import defaultdict
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import jsonfmt  # noqa: E402  与本文件同目录
 
 BASE = "https://openapi.onemap.top/ids"
 PID = "114"
@@ -554,8 +558,9 @@ data = {
 # 文体楼楼层统一编码：GF1/L2/GF2 并入 L2/L3/L4（逻辑已内联在上方 merge_wenti_floors）
 data = merge_wenti_floors(data)
 
-with open(OUT, "w", encoding="utf-8") as f:
-    json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+# 保留人读友好的缩进格式，便于查看与版本对比（打包时由 build.py 压缩）
+with open(OUT, "w", encoding="utf-8", newline="\n") as f:
+    f.write(jsonfmt.dumps(data) + "\n")
 
 size = os.path.getsize(OUT) / 1024 / 1024
 print(f"4/4 输出 {OUT}  {size:.2f} MB")

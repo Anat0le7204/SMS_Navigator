@@ -38,24 +38,38 @@ def read(path):
         return f.read()
 
 
+def compact(raw, name="数据"):
+    """把 JSON 文本压成单行，去掉缩进与分隔符空格，供内联进单文件页面。
+
+    data/*.json 保留人读友好的缩进格式；打包时再压缩，二者互不影响。
+    """
+    try:
+        obj = json.loads(raw)
+    except ValueError as e:
+        sys.exit("%s 不是合法 JSON：%s" % (name, e))
+    return json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
+
+
 def main():
     if not os.path.exists(DATA_JSON):
         sys.exit("缺少 data/map-data.json，请先运行 python scripts/build_data.py")
 
     html = read(os.path.join(SRC, "index.html"))
     raw = read(DATA_JSON).strip()
+    packed = compact(raw, "data/map-data.json")
 
-    # 开发用数据脚本
-    with io.open(DATA_JS, "w", encoding="utf-8") as f:
-        f.write("window.MAP_DATA = " + raw.replace("</script", "<\\/script") + ";\n")
+    # 开发用数据脚本（同样压缩，避免开发版与构建版体积差异过大）
+    with io.open(DATA_JS, "w", encoding="utf-8", newline="\n") as f:
+        f.write("window.MAP_DATA = " + packed.replace("</script", "<\\/script") + ";\n")
 
     # 房间目录（独立配置，便于每学年改动）
     if os.path.exists(ROOM_JSON):
         raw_room = read(ROOM_JSON).strip()
     else:
         raw_room = '{"date":"","data":[]}'
-    with io.open(ROOM_JS, "w", encoding="utf-8") as f:
-        f.write("window.ROOM_DATA = " + raw_room.replace("</script", "<\\/script") + ";\n")
+    packed_room = compact(raw_room, "data/room.json")
+    with io.open(ROOM_JS, "w", encoding="utf-8", newline="\n") as f:
+        f.write("window.ROOM_DATA = " + packed_room.replace("</script", "<\\/script") + ";\n")
 
     # 1) 内联 CSS
     css_links = re.findall(r'<link rel="stylesheet" href="(styles/[^"]+)"\s*/?>', html)
@@ -75,14 +89,14 @@ def main():
 
     # 3) 内联数据（替换开发用脚本）
     data_tag = re.compile(r'<script src="\.\./data/map-data\.js"[^>]*></script>\s*')
-    data_code = "<script>window.MAP_DATA = " + raw.replace("</script", "<\\/script") + ";</script>\n"
+    data_code = "<script>window.MAP_DATA = " + packed.replace("</script", "<\\/script") + ";</script>\n"
     if not data_tag.search(html):
         sys.exit("index.html 中未找到 data/map-data.js 引用")
     html = data_tag.sub(data_code, html, count=1)
 
     # 3b) 内联房间目录配置
     room_tag = re.compile(r'<script src="\.\./data/room\.js"[^>]*></script>\s*')
-    room_code = "<script>window.ROOM_DATA = " + raw_room.replace("</script", "<\\/script") + ";</script>\n"
+    room_code = "<script>window.ROOM_DATA = " + packed_room.replace("</script", "<\\/script") + ";</script>\n"
     if not room_tag.search(html):
         sys.exit("index.html 中未找到 data/room.js 引用")
     html = room_tag.sub(room_code, html, count=1)
@@ -99,7 +113,7 @@ def main():
     bundle = '(function(){\n"use strict";\n\n' + "\n\n".join(js_parts) + "\n\n})();\n"
     html = html.replace("</body>", "<script>\n" + bundle.replace("</script", "<\\/script") + "</script>\n</body>")
 
-    with io.open(OUT, "w", encoding="utf-8") as f:
+    with io.open(OUT, "w", encoding="utf-8", newline="\n") as f:
         f.write(html)
 
     size = os.path.getsize(OUT) / 1024 / 1024
@@ -110,7 +124,7 @@ def main():
     print("已生成: %s" % OUT)
     print("大小: %.2f MB" % size)
     print("样式: %d 个 | 脚本: %d 个 | 数据: %.2f MB | 房间: %d 条"
-          % (len(styles), len(js_tags), len(raw) / 1024 / 1024, room_count))
+          % (len(styles), len(js_tags), len(packed.encode("utf-8")) / 1024 / 1024, room_count))
 
 
 if __name__ == "__main__":
